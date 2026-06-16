@@ -3,6 +3,7 @@ import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
 import { SectManager } from './SectManager'
 import { AlchemyManager } from './AlchemyManager'
 import { SpiritBeastManager } from './SpiritBeastManager'
+import { EncounterManager } from './EncounterManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -39,11 +40,13 @@ export class SaveManager {
     const sectManager = SectManager.getInstance()
     const alchemyManager = AlchemyManager.getInstance()
     const spiritBeastManager = SpiritBeastManager.getInstance()
+    const encounterManager = EncounterManager.getInstance()
     return {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
       alchemy: alchemyManager.createInitialAlchemyData(),
       spiritBeast: spiritBeastManager.createInitialSpiritBeastData(),
+      encounter: encounterManager.createInitialEncounterProgress(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
@@ -116,6 +119,9 @@ export class SaveManager {
 
     const spiritBeastManager = SpiritBeastManager.getInstance()
     save.spiritBeast = spiritBeastManager.validateSpiritBeastData(save.spiritBeast)
+
+    const encounterManager = EncounterManager.getInstance()
+    save.encounter = encounterManager.validateEncounterProgress(save.encounter)
 
     return save
   }

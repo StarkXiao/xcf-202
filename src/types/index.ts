@@ -274,6 +274,7 @@ export interface GameSave {
   sect: Sect
   alchemy: AlchemyData
   spiritBeast: SpiritBeastData
+  encounter: EncounterProgress
   currentStage: number
   highestStage: number
   lastPlayTime: number
@@ -380,4 +381,47 @@ export interface BattleBeastData {
   currentCooldowns: Map<string, number>
 }
 
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast'
+export type EncounterRarity = 'common' | 'rare' | 'epic' | 'legendary'
+
+export interface EncounterDialogue {
+  speaker: string
+  text: string
+  color: number
+}
+
+export interface EncounterReward {
+  type: 'gold' | 'spirit' | 'exp' | 'attack' | 'defense' | 'maxHealth' | 'maxMana'
+  value: number
+}
+
+export interface EncounterChoice {
+  text: string
+  successRate: number
+  rewards: EncounterReward[]
+  failRewards: EncounterReward[]
+  resultText: string
+  failText: string
+}
+
+export interface EncounterEvent {
+  id: string
+  name: string
+  description: string
+  icon: string
+  color: number
+  requiredStage: number
+  dialogues: EncounterDialogue[]
+  choices: EncounterChoice[]
+  isRepeatable: boolean
+  rarity: EncounterRarity
+}
+
+export interface EncounterProgress {
+  completedEncounters: string[]
+  encounterCount: number
+  lastEncounterTime: number
+  dailyEncounterCount: number
+  lastDailyReset: number
+}
+
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter'
