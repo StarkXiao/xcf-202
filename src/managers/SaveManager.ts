@@ -50,9 +50,40 @@ export class SaveManager {
       spiritBeast: spiritBeastManager.createInitialSpiritBeastData(),
       encounter: encounterManager.createInitialEncounterProgress(),
       equipment: equipmentManager.createInitialEquipmentData(),
+      dungeon: this.createInitialDungeonProgress(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
+    }
+  }
+
+  createInitialDungeonProgress(): import('../types').DungeonProgress {
+    return {
+      currentFloor: 0,
+      totalFloors: 5,
+      currentRoomId: null,
+      clearedRoomIds: [],
+      activeBuffs: [],
+      dungeonGold: 0,
+      dungeonSpirit: 0,
+      dungeonExp: 0,
+      floor: null,
+      playerSnapshot: null,
+      isDungeonActive: false,
+      dungeonStartHealth: 100
+    }
+  }
+
+  validateDungeonProgress(dungeon: any): import('../types').DungeonProgress {
+    if (!dungeon) {
+      return this.createInitialDungeonProgress()
+    }
+    const defaults = this.createInitialDungeonProgress()
+    return {
+      ...defaults,
+      ...dungeon,
+      activeBuffs: dungeon.activeBuffs || [],
+      clearedRoomIds: dungeon.clearedRoomIds || []
     }
   }
 
@@ -128,6 +159,8 @@ export class SaveManager {
 
     const equipmentManager = EquipmentManager.getInstance()
     save.equipment = equipmentManager.validateEquipmentData(save.equipment)
+
+    save.dungeon = this.validateDungeonProgress(save.dungeon)
 
     return save
   }

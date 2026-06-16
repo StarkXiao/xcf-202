@@ -154,12 +154,13 @@ export class MenuScene extends Phaser.Scene {
   private createMenuButtons(width: number, height: number): void {
     const buttonConfigs = [
       { label: '⚔ 开始闯关', y: height * 0.45, color: 0x4fc3f7, action: () => this.startBattle() },
-      { label: '✨ 仙缘奇遇', y: height * 0.51, color: 0xba68c8, action: () => this.goToEncounter() },
-      { label: '🐉 灵兽养成', y: height * 0.57, color: 0xff7043, action: () => this.goToSpiritBeast() },
-      { label: '🧪 洞府炼丹', y: height * 0.63, color: 0xba68c8, action: () => this.goToAlchemy() },
-      { label: '🏛️ 宗门经营', y: height * 0.69, color: 0xffd54f, action: () => this.goToSect() },
-      { label: '💎 法宝养成', y: height * 0.75, color: 0x81c784, action: () => this.goToTreasure() },
-      { label: '⚒️ 装备锻造', y: height * 0.81, color: 0xff7043, action: () => this.goToEquipment() },
+      { label: '🏰 秘境探索', y: height * 0.48 + 6, color: 0x9575cd, action: () => this.goToDungeon() },
+      { label: '✨ 仙缘奇遇', y: height * 0.51 + 12, color: 0xba68c8, action: () => this.goToEncounter() },
+      { label: '🐉 灵兽养成', y: height * 0.57 + 12, color: 0xff7043, action: () => this.goToSpiritBeast() },
+      { label: '🧪 洞府炼丹', y: height * 0.63 + 12, color: 0xba68c8, action: () => this.goToAlchemy() },
+      { label: '🏛️ 宗门经营', y: height * 0.69 + 12, color: 0xffd54f, action: () => this.goToSect() },
+      { label: '💎 法宝养成', y: height * 0.75 + 12, color: 0x81c784, action: () => this.goToTreasure() },
+      { label: '⚒️ 装备锻造', y: height * 0.81 + 12, color: 0xff7043, action: () => this.goToEquipment() },
       { label: '📖 重新开始', y: height * 0.94, color: 0xef5350, action: () => this.confirmReset() }
     ]
 
@@ -288,6 +289,13 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('EncounterScene')
+    })
+  }
+
+  private goToDungeon(): void {
+    this.cameras.main.fadeOut(400)
+    this.time.delayedCall(400, () => {
+      this.scene.start('DungeonScene')
     })
   }
 

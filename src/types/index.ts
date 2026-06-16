@@ -499,9 +499,117 @@ export interface GameSave {
   spiritBeast: SpiritBeastData
   encounter: EncounterProgress
   equipment: EquipmentData
+  dungeon: DungeonProgress
   currentStage: number
   highestStage: number
   lastPlayTime: number
 }
 
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment'
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon'
+
+export type DungeonRoomType = 'battle' | 'event' | 'treasure' | 'rest' | 'shop' | 'boss' | 'mystery'
+export type DungeonBuffType = 'attack' | 'defense' | 'maxHealth' | 'critRate' | 'critDamage' | 'manaRegen' | 'heal'
+
+export interface DungeonBuff {
+  id: string
+  name: string
+  description: string
+  type: DungeonBuffType
+  value: number
+  icon: string
+  color: number
+  remainingRooms: number
+}
+
+export interface DungeonEventChoice {
+  id: string
+  text: string
+  description: string
+  successRate: number
+  successRewards: {
+    gold?: number
+    spirit?: number
+    exp?: number
+    health?: number
+    buff?: DungeonBuff
+    healPercent?: number
+  }
+  failPenalty?: {
+    healthDamage?: number
+    goldLoss?: number
+  }
+  successText: string
+  failText: string
+}
+
+export interface DungeonEvent {
+  id: string
+  name: string
+  description: string
+  icon: string
+  color: number
+  choices: DungeonEventChoice[]
+}
+
+export interface DungeonRoom {
+  id: string
+  layer: number
+  index: number
+  type: DungeonRoomType
+  name: string
+  description: string
+  icon: string
+  color: number
+  event?: DungeonEvent
+  enemyLevel?: number
+  rewards?: {
+    gold?: number
+    spirit?: number
+    exp?: number
+    buff?: DungeonBuff
+    healPercent?: number
+  }
+  isCleared: boolean
+  isAccessible: boolean
+  connections: string[]
+}
+
+export interface DungeonFloor {
+  layer: number
+  name: string
+  rooms: DungeonRoom[]
+  bossRoomId: string
+}
+
+export interface DungeonProgress {
+  currentFloor: number
+  totalFloors: number
+  currentRoomId: string | null
+  clearedRoomIds: string[]
+  activeBuffs: DungeonBuff[]
+  dungeonGold: number
+  dungeonSpirit: number
+  dungeonExp: number
+  floor: DungeonFloor | null
+  playerSnapshot: {
+    health: number
+    maxHealth: number
+    attack: number
+    defense: number
+    mana: number
+    maxMana: number
+  } | null
+  isDungeonActive: boolean
+  dungeonStartHealth: number
+}
+
+export interface DungeonResult {
+  success: boolean
+  clearedFloors: number
+  totalRoomsCleared: number
+  goldEarned: number
+  spiritEarned: number
+  expEarned: number
+  buffsApplied: DungeonBuff[]
+}
+
