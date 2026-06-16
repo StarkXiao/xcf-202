@@ -500,12 +500,11 @@ export interface GameSave {
   encounter: EncounterProgress
   equipment: EquipmentData
   dungeon: DungeonProgress
+  meridian: MeridianData
   currentStage: number
   highestStage: number
   lastPlayTime: number
 }
-
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon'
 
 export type DungeonRoomType = 'battle' | 'event' | 'treasure' | 'rest' | 'shop' | 'boss' | 'mystery'
 export type DungeonBuffType = 'attack' | 'defense' | 'maxHealth' | 'critRate' | 'critDamage' | 'manaRegen' | 'heal'
@@ -612,4 +611,87 @@ export interface DungeonResult {
   expEarned: number
   buffsApplied: DungeonBuff[]
 }
+
+export type MeridianRealm = 'qi_refining' | 'foundation' | 'golden_core' | 'nascent_soul' | 'soul_formation' | 'tribulation' | 'immortal'
+
+export interface MeridianRealmInfo {
+  id: MeridianRealm
+  name: string
+  description: string
+  order: number
+  color: number
+  requiredLevel: number
+  breakthroughSpiritCost: number
+  breakthroughSuccessRate: number
+  maxNodes: number
+  statBonuses: {
+    maxHealth: number
+    maxMana: number
+    attack: number
+    defense: number
+  }
+}
+
+export type MeridianNodeType = 'attack' | 'defense' | 'health' | 'mana' | 'crit_rate' | 'crit_damage' | 'skill'
+
+export interface MeridianNodeTemplate {
+  id: string
+  name: string
+  description: string
+  type: MeridianNodeType
+  realm: MeridianRealm
+  position: number
+  spiritCost: number
+  statValue?: number
+  unlockSkillId?: string
+  color: number
+  icon: string
+  requiredNodes: string[]
+}
+
+export interface MeridianNode {
+  templateId: string
+  activated: boolean
+  activationTime: number | null
+}
+
+export interface MeridianSkillUnlock {
+  id: string
+  name: string
+  description: string
+  damage: number
+  cooldown: number
+  manaCost: number
+  color: number
+  icon: string
+  requiredNodeId: string
+}
+
+export interface MeridianData {
+  currentRealm: MeridianRealm
+  highestRealm: MeridianRealm
+  nodes: MeridianNode[]
+  unlockedSkillIds: string[]
+  breakthroughAttempts: number
+  lastBreakthroughTime: number | null
+}
+
+export interface MeridianBonus {
+  maxHealth: number
+  maxMana: number
+  attack: number
+  defense: number
+  critRate: number
+  critDamage: number
+}
+
+export interface BreakthroughResult {
+  success: boolean
+  previousRealm: MeridianRealm
+  newRealm?: MeridianRealm
+  message: string
+  costSpent: number
+}
+
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon' | 'meridian'
 
