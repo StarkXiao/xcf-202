@@ -1157,11 +1157,6 @@ export class DungeonScene extends Phaser.Scene {
       if (r.gold) this.progress.dungeonGold += r.gold
       if (r.spirit) this.progress.dungeonSpirit += r.spirit
       if (r.exp) this.progress.dungeonExp += r.exp
-      if (r.healPercent) {
-        this.save.player.health = Math.min(this.save.player.maxHealth, this.save.player.health + Math.floor(this.save.player.maxHealth * r.healPercent))
-        this.save.player.mana = Math.min(this.save.player.maxMana, this.save.player.mana + Math.floor(this.save.player.maxMana * r.healPercent * 0.5))
-      }
-      if (r.buff) this.dungeonManager.addBuff(this.progress, r.buff)
     }
 
     this.dungeonManager.clearRoom(this.progress, room.id)
@@ -1184,7 +1179,7 @@ export class DungeonScene extends Phaser.Scene {
 
     this.save.player.health = Math.min(this.save.player.maxHealth, this.save.player.health + Math.floor(this.save.player.maxHealth * 0.3))
     this.save.player.mana = Math.min(this.save.player.maxMana, this.save.player.mana + Math.floor(this.save.player.maxMana * 0.5))
-    SkillSystem.fullRestore(this.save.player)
+    this.save.player.skills.forEach((s: Skill) => { s.currentCooldown = 0 })
 
     this.dungeonManager.nextFloor(this.progress, this.save.player.level)
     this.recalcPlayerStats()

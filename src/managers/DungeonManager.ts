@@ -318,14 +318,39 @@ export class DungeonManager {
       save.player.spirit += Math.floor(rewards.totalSpirit * 0.3)
     }
 
+    progress.activeBuffs = []
+
+    let finalHealth = save.player.health
+    let finalMana = save.player.mana
+
     if (progress.playerSnapshot) {
-      save.player.health = Math.max(1, Math.floor(progress.playerSnapshot.maxHealth * 0.5))
+      const snapshot = progress.playerSnapshot
+      const healthRatio = save.player.health / save.player.maxHealth
+      const manaRatio = save.player.mana / save.player.maxMana
+
+      save.player.maxHealth = snapshot.maxHealth
+      save.player.attack = snapshot.attack
+      save.player.defense = snapshot.defense
+      save.player.maxMana = snapshot.maxMana
+
+      if (victory) {
+        finalHealth = Math.max(1, Math.floor(save.player.maxHealth * healthRatio))
+        finalMana = Math.max(0, Math.floor(save.player.maxMana * manaRatio))
+      } else {
+        finalHealth = Math.max(1, Math.floor(snapshot.health * 0.5))
+        finalMana = Math.max(0, Math.floor(snapshot.mana * 0.5))
+      }
+
+      finalHealth = Math.min(finalHealth, save.player.maxHealth)
+      finalMana = Math.min(finalMana, save.player.maxMana)
     }
+
+    save.player.health = finalHealth
+    save.player.mana = finalMana
 
     progress.isDungeonActive = false
     progress.floor = null
     progress.currentRoomId = null
-    progress.activeBuffs = []
     progress.playerSnapshot = null
 
     return rewards
