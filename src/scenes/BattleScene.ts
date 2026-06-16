@@ -3,6 +3,7 @@ import type { Player, Enemy, Stage, Skill, BattleResult } from '../types'
 import { STAGES } from '../data/gameData'
 import { SaveManager } from '../managers/SaveManager'
 import { SkillSystem } from '../managers/SkillSystem'
+import { AlchemyManager } from '../managers/AlchemyManager'
 
 export class BattleScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -29,10 +30,13 @@ export class BattleScene extends Phaser.Scene {
     super({ key: 'BattleScene' })
   }
 
+  private alchemyManager = AlchemyManager.getInstance()
+
   init(data: { stageId: number }): void {
     const save = this.saveManager.loadGame()!
     this.player = save.player
-    this.saveManager.recalcPlayerStats(this.player)
+    const buff = this.alchemyManager.getBuffBonus(save.alchemy)
+    this.saveManager.recalcPlayerStats(this.player, buff)
     this.player.health = Math.min(this.player.health, this.player.maxHealth)
     this.player.mana = Math.min(this.player.mana, this.player.maxMana)
 
@@ -557,20 +561,25 @@ export class BattleScene extends Phaser.Scene {
 
     this.cameras.main.flash(500, 255, 255, 200)
 
+    const save = this.saveManager.loadGame()!
+    const herbDrops = this.alchemyManager.rollHerbDrops(this.stage.id)
+    this.alchemyManager.applyHerbDrops(save.alchemy, herbDrops)
+
     const result: BattleResult = {
       victory: true,
       stageId: this.stage.id,
       expGained: this.stage.rewards.exp,
       goldGained: this.stage.rewards.gold,
       spiritGained: this.stage.rewards.spirit,
-      playerHealth: this.player.health
+      playerHealth: this.player.health,
+      herbDrops
     }
 
-    const save = this.saveManager.loadGame()!
     save.player = this.player
     save.player.gold += result.goldGained
     save.player.spirit += result.spiritGained
     const levelResult = this.saveManager.addExp(save.player, result.expGained)
+    this.alchemyManager.checkRecipeUnlock(save.alchemy, save.player.level)
 
     if (this.stage.id >= save.highestStage) {
       save.highestStage = Math.min(this.stage.id + 1, STAGES.length)

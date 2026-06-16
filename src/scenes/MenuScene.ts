@@ -153,10 +153,11 @@ export class MenuScene extends Phaser.Scene {
 
   private createMenuButtons(width: number, height: number): void {
     const buttonConfigs = [
-      { label: '⚔ 开始闯关', y: height * 0.64, color: 0x4fc3f7, action: () => this.startBattle() },
-      { label: '🏛️ 宗门经营', y: height * 0.72, color: 0xffd54f, action: () => this.goToSect() },
-      { label: '💎 法宝养成', y: height * 0.8, color: 0x81c784, action: () => this.goToTreasure() },
-      { label: '📖 重新开始', y: height * 0.88, color: 0xef5350, action: () => this.confirmReset() }
+      { label: '⚔ 开始闯关', y: height * 0.58, color: 0x4fc3f7, action: () => this.startBattle() },
+      { label: '🧪 洞府炼丹', y: height * 0.66, color: 0xba68c8, action: () => this.goToAlchemy() },
+      { label: '🏛️ 宗门经营', y: height * 0.74, color: 0xffd54f, action: () => this.goToSect() },
+      { label: '💎 法宝养成', y: height * 0.82, color: 0x81c784, action: () => this.goToTreasure() },
+      { label: '📖 重新开始', y: height * 0.9, color: 0xef5350, action: () => this.confirmReset() }
     ]
 
     buttonConfigs.forEach((config, index) => {
@@ -256,6 +257,13 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('SectScene')
+    })
+  }
+
+  private goToAlchemy(): void {
+    this.cameras.main.fadeOut(400)
+    this.time.delayedCall(400, () => {
+      this.scene.start('AlchemyScene')
     })
   }
 

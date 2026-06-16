@@ -2,6 +2,8 @@ import Phaser from 'phaser'
 import type { BattleResult, Player } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { STAGES } from '../data/gameData'
+import { AlchemyManager } from '../managers/AlchemyManager'
+import { getHerbById } from '../data/alchemyData'
 
 export class ResultScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -43,8 +45,9 @@ export class ResultScene extends Phaser.Scene {
     overlay.fillStyle(0x000000, 0.3)
     overlay.fillRect(0, 0, width, height)
 
+    const hasHerbDrops = this.result.victory && this.result.herbDrops && this.result.herbDrops.length > 0
     const panelWidth = 500
-    const panelHeight = 480
+    const panelHeight = hasHerbDrops ? 560 : 480
     const panelX = width / 2
     const panelY = height / 2
 
@@ -109,6 +112,9 @@ export class ResultScene extends Phaser.Scene {
   }
 
   private createVictoryContent(x: number, y: number): void {
+    const hasHerbs = this.result.herbDrops && this.result.herbDrops.length > 0
+    const rewardsStartY = hasHerbs ? y - 90 : y - 60
+
     const rewards = [
       { label: '✨ 经验', value: '+' + this.result.expGained, color: 0x4fc3f7 },
       { label: '💰 金币', value: '+' + this.result.goldGained, color: 0xffd54f },
@@ -116,18 +122,18 @@ export class ResultScene extends Phaser.Scene {
     ]
 
     rewards.forEach((reward, index) => {
-      const ry = y - 60 + index * 55
+      const ry = rewardsStartY + index * 45
       const container = this.add.container(x, ry)
 
       const label = this.add.text(-150, 0, reward.label, {
         fontFamily: '"Microsoft YaHei", serif',
-        fontSize: '24px',
+        fontSize: '22px',
         color: '#' + reward.color.toString(16).padStart(6, '0')
       }).setOrigin(0, 0.5)
 
       const value = this.add.text(150, 0, reward.value, {
         fontFamily: '"Microsoft YaHei", serif',
-        fontSize: '28px',
+        fontSize: '26px',
         color: '#ffffff',
         fontStyle: 'bold'
       }).setOrigin(1, 0.5)
@@ -145,8 +151,47 @@ export class ResultScene extends Phaser.Scene {
       })
     })
 
+    let herbY = rewardsStartY + 3 * 45 + 15
+    if (hasHerbs && this.result.herbDrops) {
+      const herbTitle = this.add.text(x, herbY, '🌿 获得药材：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#81c784',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: herbTitle,
+        alpha: 1,
+        duration: 400,
+        delay: 1100
+      })
+
+      this.result.herbDrops.forEach((drop, idx) => {
+        const herb = getHerbById(drop.herbId)
+        if (!herb) return
+        const dy = herbY + 30 + idx * 28
+        const herbText = this.add.text(x, dy,
+          `${herb.icon} ${herb.name}  x${drop.amount}`,
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '18px',
+            color: '#' + herb.color.toString(16).padStart(6, '0')
+          }).setOrigin(0.5).setAlpha(0)
+        this.tweens.add({
+          targets: herbText,
+          alpha: 1,
+          duration: 400,
+          delay: 1200 + idx * 150
+        })
+      })
+      herbY = herbY + 30 + this.result.herbDrops.length * 28 + 15
+    } else {
+      herbY = rewardsStartY + 3 * 45 + 15
+    }
+
     if (this.leveledUp) {
-      const levelUpText = this.add.text(x, y + 95,
+      const levelUpY = herbY
+      const levelUpText = this.add.text(x, levelUpY,
         `🎊 等级提升！Lv.${this.player.level - this.levels} → Lv.${this.player.level}`,
         {
           fontFamily: '"Microsoft YaHei", serif',
@@ -162,7 +207,7 @@ export class ResultScene extends Phaser.Scene {
         alpha: 1,
         scale: { from: 0.8, to: 1 },
         duration: 600,
-        delay: 1200,
+        delay: 1400,
         ease: 'Back.easeOut'
       })
 
@@ -170,13 +215,14 @@ export class ResultScene extends Phaser.Scene {
         targets: levelUpText,
         scale: 1.05,
         duration: 800,
-        delay: 1800,
+        delay: 2000,
         yoyo: true,
         repeat: -1
       })
+      herbY = levelUpY + 40
     }
 
-    const currentInfo = this.add.text(x, y + 145,
+    const currentInfo = this.add.text(x, herbY + 15,
       `当前等级: Lv.${this.player.level}  |  经验: ${this.player.exp}/${this.player.expToNext}`,
       {
         fontFamily: '"Microsoft YaHei", serif',
@@ -188,7 +234,7 @@ export class ResultScene extends Phaser.Scene {
       targets: currentInfo,
       alpha: 1,
       duration: 500,
-      delay: 1500
+      delay: 1700
     })
   }
 

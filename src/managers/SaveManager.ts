@@ -1,6 +1,7 @@
 import type { GameSave, Player, Skill, Treasure } from '../types'
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
 import { SectManager } from './SectManager'
+import { AlchemyManager } from './AlchemyManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -35,9 +36,11 @@ export class SaveManager {
 
   createNewSave(): GameSave {
     const sectManager = SectManager.getInstance()
+    const alchemyManager = AlchemyManager.getInstance()
     return {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
+      alchemy: alchemyManager.createInitialAlchemyData(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
@@ -105,6 +108,9 @@ export class SaveManager {
       save.sect = sectManager.validateSect(save.sect)
     }
 
+    const alchemyManager = AlchemyManager.getInstance()
+    save.alchemy = alchemyManager.validateAlchemyData(save.alchemy)
+
     return save
   }
 
@@ -116,7 +122,7 @@ export class SaveManager {
     localStorage.removeItem(SAVE_KEY)
   }
 
-  recalcPlayerStats(player: Player): Player {
+  recalcPlayerStats(player: Player, alchemyBuff?: { attack: number; defense: number }): Player {
     let bonusAttack = 0
     let bonusDefense = 0
     let bonusHealth = 0
@@ -131,10 +137,13 @@ export class SaveManager {
     const baseAttack = 20 + (player.level - 1) * 5
     const baseDefense = 10 + (player.level - 1) * 3
 
+    const buffAttack = alchemyBuff?.attack || 0
+    const buffDefense = alchemyBuff?.defense || 0
+
     player.maxHealth = baseHealth + bonusHealth
     player.maxMana = 50 + (player.level - 1) * 10
-    player.attack = baseAttack + bonusAttack
-    player.defense = baseDefense + bonusDefense
+    player.attack = baseAttack + bonusAttack + buffAttack
+    player.defense = baseDefense + bonusDefense + buffDefense
 
     if (player.health > player.maxHealth) player.health = player.maxHealth
     if (player.mana > player.maxMana) player.mana = player.maxMana

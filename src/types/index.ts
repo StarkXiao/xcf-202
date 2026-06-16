@@ -68,8 +68,6 @@ export interface Stage {
   }
 }
 
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result'
-
 export interface BattleResult {
   victory: boolean
   stageId: number
@@ -77,6 +75,7 @@ export interface BattleResult {
   goldGained: number
   spiritGained: number
   playerHealth: number
+  herbDrops?: { herbId: string; amount: number; herbName?: string; herbIcon?: string }[]
 }
 
 export type ResourceType = 'gold' | 'spirit' | 'stone' | 'wood' | 'herb'
@@ -192,10 +191,76 @@ export interface Sect {
   lastDailyReset: number
 }
 
+export interface Herb {
+  id: string
+  name: string
+  description: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  color: number
+  icon: string
+}
+
+export interface PillEffect {
+  type: 'attack' | 'defense' | 'health' | 'mana' | 'exp' | 'heal' | 'manaRestore' | 'critRate' | 'critDamage'
+  value: number
+  duration?: number
+}
+
+export interface Pill {
+  id: string
+  name: string
+  description: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  color: number
+  icon: string
+  effects: PillEffect[]
+  stackable: boolean
+  price: number
+}
+
+export interface Recipe {
+  id: string
+  name: string
+  description: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  color: number
+  resultPillId: string
+  resultAmount: number
+  materials: { herbId: string; amount: number }[]
+  goldCost: number
+  spiritCost: number
+  baseSuccessRate: number
+  unlockLevel: number
+  unlocked: boolean
+}
+
+export interface InventoryItem {
+  id: string
+  type: 'herb' | 'pill'
+  itemId: string
+  quantity: number
+}
+
+export interface ActivePillBuff {
+  pillId: string
+  effects: PillEffect[]
+  endTime: number
+}
+
+export interface AlchemyData {
+  herbs: InventoryItem[]
+  pills: InventoryItem[]
+  unlockedRecipes: string[]
+  activeBuffs: ActivePillBuff[]
+}
+
 export interface GameSave {
   player: Player
   sect: Sect
+  alchemy: AlchemyData
   currentStage: number
   highestStage: number
   lastPlayTime: number
 }
+
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy'
