@@ -153,16 +153,17 @@ export class MenuScene extends Phaser.Scene {
 
   private createMenuButtons(width: number, height: number): void {
     const buttonConfigs = [
-      { label: '⚔ 开始闯关', y: height * 0.45, color: 0x4fc3f7, action: () => this.startBattle() },
-      { label: '🏰 秘境探索', y: height * 0.48 + 6, color: 0x9575cd, action: () => this.goToDungeon() },
-      { label: '✨ 仙缘奇遇', y: height * 0.51 + 12, color: 0xba68c8, action: () => this.goToEncounter() },
-      { label: '🧘 经脉修炼', y: height * 0.54 + 12, color: 0xe1bee7, action: () => this.goToMeridian() },
-      { label: '🐉 灵兽养成', y: height * 0.60 + 12, color: 0xff7043, action: () => this.goToSpiritBeast() },
-      { label: '🧪 洞府炼丹', y: height * 0.66 + 12, color: 0xba68c8, action: () => this.goToAlchemy() },
-      { label: '🏛️ 宗门经营', y: height * 0.72 + 12, color: 0xffd54f, action: () => this.goToSect() },
-      { label: '💎 法宝养成', y: height * 0.78 + 12, color: 0x81c784, action: () => this.goToTreasure() },
-      { label: '⚒️ 装备锻造', y: height * 0.84 + 12, color: 0xff7043, action: () => this.goToEquipment() },
-      { label: '📖 重新开始', y: height * 0.94, color: 0xef5350, action: () => this.confirmReset() }
+      { label: '⚔ 开始闯关', y: height * 0.42, color: 0x4fc3f7, action: () => this.startBattle() },
+      { label: '🏪 坊市交易', y: height * 0.46 + 6, color: 0xffd54f, action: () => this.goToShop() },
+      { label: '🏰 秘境探索', y: height * 0.50 + 12, color: 0x9575cd, action: () => this.goToDungeon() },
+      { label: '✨ 仙缘奇遇', y: height * 0.54 + 18, color: 0xba68c8, action: () => this.goToEncounter() },
+      { label: '🧘 经脉修炼', y: height * 0.58 + 24, color: 0xe1bee7, action: () => this.goToMeridian() },
+      { label: '🐉 灵兽养成', y: height * 0.64 + 24, color: 0xff7043, action: () => this.goToSpiritBeast() },
+      { label: '🧪 洞府炼丹', y: height * 0.70 + 24, color: 0xba68c8, action: () => this.goToAlchemy() },
+      { label: '🏛️ 宗门经营', y: height * 0.76 + 24, color: 0xffd54f, action: () => this.goToSect() },
+      { label: '💎 法宝养成', y: height * 0.82 + 24, color: 0x81c784, action: () => this.goToTreasure() },
+      { label: '⚒️ 装备锻造', y: height * 0.88 + 24, color: 0xff7043, action: () => this.goToEquipment() },
+      { label: '📖 重新开始', y: height * 0.96, color: 0xef5350, action: () => this.confirmReset() }
     ]
 
     buttonConfigs.forEach((config, index) => {
@@ -304,6 +305,13 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('MeridianScene')
+    })
+  }
+
+  private goToShop(): void {
+    this.cameras.main.fadeOut(400)
+    this.time.delayedCall(400, () => {
+      this.scene.start('ShopScene')
     })
   }
 

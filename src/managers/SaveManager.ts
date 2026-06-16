@@ -6,6 +6,7 @@ import { SpiritBeastManager } from './SpiritBeastManager'
 import { EncounterManager } from './EncounterManager'
 import { EquipmentManager } from './EquipmentManager'
 import { MeridianManager } from './MeridianManager'
+import { ShopManager } from './ShopManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -47,6 +48,7 @@ export class SaveManager {
     const encounterManager = EncounterManager.getInstance()
     const equipmentManager = EquipmentManager.getInstance()
     const meridianManager = MeridianManager.getInstance()
+    const shopManager = ShopManager.getInstance()
     return {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
@@ -55,6 +57,7 @@ export class SaveManager {
       encounter: encounterManager.createInitialEncounterProgress(),
       equipment: equipmentManager.createInitialEquipmentData(),
       meridian: meridianManager.createInitialMeridianData(),
+      shop: shopManager.createInitialShopData(),
       dungeon: this.createInitialDungeonProgress(),
       currentStage: 1,
       highestStage: 1,
@@ -170,6 +173,9 @@ export class SaveManager {
 
     const meridianManager = MeridianManager.getInstance()
     save.meridian = meridianManager.validateMeridianData(save.meridian)
+
+    const shopManager = ShopManager.getInstance()
+    save.shop = shopManager.validateShopData(save.shop)
 
     save.dungeon = this.validateDungeonProgress(save.dungeon)
 

@@ -503,6 +503,7 @@ export interface GameSave {
   equipment: EquipmentData
   dungeon: DungeonProgress
   meridian: MeridianData
+  shop: ShopData
   currentStage: number
   highestStage: number
   lastPlayTime: number
@@ -695,5 +696,74 @@ export interface BreakthroughResult {
   costSpent: number
 }
 
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon' | 'meridian'
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon' | 'meridian' | 'shop'
+
+export type ShopRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+export type ShopItemType = 'pill' | 'herb' | 'material' | 'treasure' | 'consumable'
+
+export interface ShopItem {
+  id: string
+  templateId: string
+  name: string
+  description: string
+  type: ShopItemType
+  rarity: ShopRarity
+  icon: string
+  color: number
+  basePrice: number
+  currentPrice: number
+  priceFluctuation: number
+  stock: number
+  maxStock: number
+  isRareStock?: boolean
+  effects?: {
+    type: string
+    value: number
+    duration?: number
+  }[]
+}
+
+export interface ShopItemTemplate {
+  id: string
+  name: string
+  description: string
+  type: ShopItemType
+  rarity: ShopRarity
+  icon: string
+  color: number
+  basePrice: number
+  maxStock: number
+  spawnWeight: number
+  minStage: number
+  effects?: {
+    type: string
+    value: number
+    duration?: number
+  }[]
+}
+
+export interface ShopPurchaseRecord {
+  itemId: string
+  itemName: string
+  price: number
+  purchaseTime: number
+  quantity: number
+}
+
+export interface ShopData {
+  items: ShopItem[]
+  lastRefreshTime: number
+  refreshCount: number
+  dailyRefreshCount: number
+  lastDailyReset: number
+  purchaseHistory: ShopPurchaseRecord[]
+  totalSpent: number
+  rareItemsFound: number
+}
+
+export interface ShopRefreshResult {
+  items: ShopItem[]
+  rareItems: ShopItem[]
+  message: string
+}
 
