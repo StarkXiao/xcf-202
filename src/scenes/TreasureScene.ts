@@ -1,9 +1,11 @@
 import Phaser from 'phaser'
 import type { Player, Treasure } from '../types'
 import { SaveManager } from '../managers/SaveManager'
+import { AlchemyManager } from '../managers/AlchemyManager'
 
 export class TreasureScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
+  private alchemyManager = AlchemyManager.getInstance()
   private player!: Player
   private selectedTreasure: Treasure | null = null
   private treasureCards: Phaser.GameObjects.Container[] = []
@@ -19,7 +21,8 @@ export class TreasureScene extends Phaser.Scene {
   init(): void {
     const save = this.saveManager.loadGame()!
     this.player = save.player
-    this.saveManager.recalcPlayerStats(this.player)
+    const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
+    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus)
   }
 
   create(): void {
@@ -335,9 +338,10 @@ export class TreasureScene extends Phaser.Scene {
     this.player.spirit -= spiritCost
     treasure.level++
 
-    this.saveManager.recalcPlayerStats(this.player)
-
     const save = this.saveManager.loadGame()!
+    const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
+    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus)
+
     save.player = this.player
     this.saveManager.saveGame(save)
 

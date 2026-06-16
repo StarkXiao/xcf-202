@@ -36,7 +36,8 @@ export class BattleScene extends Phaser.Scene {
     const save = this.saveManager.loadGame()!
     this.player = save.player
     const buff = this.alchemyManager.getBuffBonus(save.alchemy)
-    this.saveManager.recalcPlayerStats(this.player, buff)
+    const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
+    this.saveManager.recalcPlayerStats(this.player, buff, permBonus)
     this.player.health = Math.min(this.player.health, this.player.maxHealth)
     this.player.mana = Math.min(this.player.mana, this.player.maxMana)
 
@@ -578,7 +579,8 @@ export class BattleScene extends Phaser.Scene {
     save.player = this.player
     save.player.gold += result.goldGained
     save.player.spirit += result.spiritGained
-    const levelResult = this.saveManager.addExp(save.player, result.expGained)
+    const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
+    const levelResult = this.saveManager.addExp(save.player, result.expGained, permBonus)
     this.alchemyManager.checkRecipeUnlock(save.alchemy, save.player.level)
 
     if (this.stage.id >= save.highestStage) {

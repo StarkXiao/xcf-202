@@ -216,6 +216,7 @@ export interface Pill {
   effects: PillEffect[]
   stackable: boolean
   price: number
+  useLimit?: number
 }
 
 export interface Recipe {
@@ -247,11 +248,25 @@ export interface ActivePillBuff {
   endTime: number
 }
 
+export interface PermanentPillRecord {
+  pillId: string
+  usedCount: number
+}
+
+export interface PermanentStatsBonus {
+  maxHealth: number
+  maxMana: number
+  attack: number
+  defense: number
+}
+
 export interface AlchemyData {
   herbs: InventoryItem[]
   pills: InventoryItem[]
   unlockedRecipes: string[]
   activeBuffs: ActivePillBuff[]
+  permanentRecords: PermanentPillRecord[]
+  permanentBonus: PermanentStatsBonus
 }
 
 export interface GameSave {

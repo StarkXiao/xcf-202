@@ -146,12 +146,13 @@ export const PILLS: Pill[] = [
     icon: '💗',
     effects: [{ type: 'health', value: 50 }],
     stackable: false,
-    price: 1000
+    price: 1000,
+    useLimit: 3
   },
   {
     id: 'pill_jiuzhuan',
     name: '九转还魂丹',
-    description: '传说中的神丹，可全面提升修为。',
+    description: '传说中的神丹，可全面提升修为（限服1颗）。',
     rarity: 'legendary',
     color: 0xffd700,
     icon: '👑',
@@ -161,7 +162,8 @@ export const PILLS: Pill[] = [
       { type: 'health', value: 100 }
     ],
     stackable: false,
-    price: 5000
+    price: 5000,
+    useLimit: 1
   }
 ]
 
@@ -358,4 +360,16 @@ export function getPillById(id: string): Pill | undefined {
 
 export function getRecipeById(id: string): Recipe | undefined {
   return RECIPES.find(r => r.id === id)
+}
+
+export const PERMANENT_PILL_LIMITS: Record<string, number> = {
+  'pill_qiangshen': 3
+}
+
+export function getPillUseLimit(pillId: string): number {
+  return PERMANENT_PILL_LIMITS[pillId] || 0
+}
+
+export function isPermanentPill(pill: Pill): boolean {
+  return pill.effects.some(e => !e.duration && ['health', 'mana', 'attack', 'defense'].includes(e.type))
 }

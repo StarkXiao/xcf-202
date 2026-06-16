@@ -1,4 +1,4 @@
-import type { GameSave, Player, Skill, Treasure } from '../types'
+import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus } from '../types'
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
 import { SectManager } from './SectManager'
 import { AlchemyManager } from './AlchemyManager'
@@ -122,7 +122,7 @@ export class SaveManager {
     localStorage.removeItem(SAVE_KEY)
   }
 
-  recalcPlayerStats(player: Player, alchemyBuff?: { attack: number; defense: number }): Player {
+  recalcPlayerStats(player: Player, alchemyBuff?: { attack: number; defense: number }, permanentBonus?: PermanentStatsBonus): Player {
     let bonusAttack = 0
     let bonusDefense = 0
     let bonusHealth = 0
@@ -140,10 +140,15 @@ export class SaveManager {
     const buffAttack = alchemyBuff?.attack || 0
     const buffDefense = alchemyBuff?.defense || 0
 
-    player.maxHealth = baseHealth + bonusHealth
-    player.maxMana = 50 + (player.level - 1) * 10
-    player.attack = baseAttack + bonusAttack + buffAttack
-    player.defense = baseDefense + bonusDefense + buffDefense
+    const permHealth = permanentBonus?.maxHealth || 0
+    const permMana = permanentBonus?.maxMana || 0
+    const permAttack = permanentBonus?.attack || 0
+    const permDefense = permanentBonus?.defense || 0
+
+    player.maxHealth = baseHealth + bonusHealth + permHealth
+    player.maxMana = 50 + (player.level - 1) * 10 + permMana
+    player.attack = baseAttack + bonusAttack + buffAttack + permAttack
+    player.defense = baseDefense + bonusDefense + buffDefense + permDefense
 
     if (player.health > player.maxHealth) player.health = player.maxHealth
     if (player.mana > player.maxMana) player.mana = player.maxMana
@@ -151,7 +156,7 @@ export class SaveManager {
     return player
   }
 
-  addExp(player: Player, exp: number): { leveledUp: boolean; levels: number } {
+  addExp(player: Player, exp: number, permanentBonus?: PermanentStatsBonus): { leveledUp: boolean; levels: number } {
     let leveledUp = false
     let levels = 0
     player.exp += exp
@@ -165,7 +170,7 @@ export class SaveManager {
     }
 
     if (leveledUp) {
-      this.recalcPlayerStats(player)
+      this.recalcPlayerStats(player, undefined, permanentBonus)
       player.health = player.maxHealth
       player.mana = player.maxMana
       player.skills.forEach((s: Skill) => {

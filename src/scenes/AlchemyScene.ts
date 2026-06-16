@@ -36,7 +36,8 @@ export class AlchemyScene extends Phaser.Scene {
     this.alchemyManager.checkRecipeUnlock(this.alchemy, this.player.level)
     this.alchemyManager.getActiveBuffs(this.alchemy)
     const buff = this.alchemyManager.getBuffBonus(this.alchemy)
-    this.saveManager.recalcPlayerStats(this.player, buff)
+    const permBonus = this.alchemyManager.getPermanentBonus(this.alchemy)
+    this.saveManager.recalcPlayerStats(this.player, buff, permBonus)
   }
 
   create(): void {
@@ -619,6 +620,10 @@ export class AlchemyScene extends Phaser.Scene {
     const p = this.selectedPill!
     const qty = this.alchemyManager.getPillQuantity(this.alchemy, p.id)
     const activeBuff = this.alchemy.activeBuffs.find(b => b.pillId === p.id && b.endTime > Date.now())
+    const isPermanent = p.effects.some(e => !e.duration && ['health', 'mana', 'attack', 'defense'].includes(e.type))
+    const usedCount = this.alchemyManager.getPermanentUsedCount(this.alchemy, p.id)
+    const limit = this.alchemyManager.getPermanentLimit(p.id)
+    const permBonus = this.alchemyManager.getPermanentBonus(this.alchemy)
 
     const leftX = -panelW / 2 + 30
     const iconBg = this.add.graphics()
@@ -661,22 +666,27 @@ export class AlchemyScene extends Phaser.Scene {
       color: '#81c784'
     })
 
-    const buffText = activeBuff
+    let buffText = activeBuff
       ? `⏳ 生效中，剩余 ${Math.ceil((activeBuff.endTime - Date.now()) / 60000)} 分钟`
       : p.stackable ? '可叠加使用' : ''
+
+    if (isPermanent && limit > 0) {
+      const permStatus = `已服用: ${usedCount}/${limit}`
+      buffText = buffText ? `${buffText}  |  ${permStatus}` : permStatus
+    }
 
     if (buffText) {
       const status = this.add.text(leftX + 75, 45, buffText, {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '13px',
-        color: activeBuff ? '#4fc3f7' : '#b0bec5'
+        color: activeBuff ? '#4fc3f7' : isPermanent ? '#ffd54f' : '#b0bec5'
       })
       this.detailPanel.add(status)
     }
 
     this.detailPanel.add([iconBg, icon, name, desc, effects])
 
-    const canUse = qty > 0 && (!activeBuff || p.stackable)
+    const canUse = qty > 0 && (!activeBuff || p.stackable) && !(isPermanent && limit > 0 && usedCount >= limit)
     const btnX = panelW / 2 - 80
     const useBtn = this.createActionButton(btnX, 0, 140, 50, '💊 服用', canUse ? 0xffd54f : 0x546e7a, canUse, () => this.usePill(p.id))
     this.detailPanel.add(useBtn)
@@ -738,7 +748,8 @@ export class AlchemyScene extends Phaser.Scene {
 
     if (result.success) {
       const buff = this.alchemyManager.getBuffBonus(save.alchemy)
-      this.saveManager.recalcPlayerStats(this.player, buff)
+      const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
+      this.saveManager.recalcPlayerStats(this.player, buff, permBonus)
       this.showMessage(`💊 服用成功！${result.effects.join('，')}`)
       this.cameras.main.flash(300, 255, 213, 79)
     } else {
@@ -768,11 +779,13 @@ export class AlchemyScene extends Phaser.Scene {
 
   private updateResourceText(): void {
     const buff = this.alchemyManager.getBuffBonus(this.alchemy)
+    const perm = this.alchemyManager.getPermanentBonus(this.alchemy)
     this.resourceText.setText(
       `💰 金币: ${this.player.gold}\n` +
       `✨ 灵气: ${this.player.spirit}\n` +
-      `⚔ 攻击: ${this.player.attack}${buff.attack > 0 ? ` (+${buff.attack})` : ''}\n` +
-      `🛡 防御: ${this.player.defense}${buff.defense > 0 ? ` (+${buff.defense})` : ''}`
+      `⚔ 攻击: ${this.player.attack}${buff.attack > 0 ? ` (+${buff.attack})` : ''}${perm.attack > 0 ? ` {+${perm.attack}永久}` : ''}\n` +
+      `🛡 防御: ${this.player.defense}${buff.defense > 0 ? ` (+${buff.defense})` : ''}${perm.defense > 0 ? ` {+${perm.defense}永久}` : ''}\n` +
+      `❤️ 最大生命: ${this.player.maxHealth}${perm.maxHealth > 0 ? ` {+${perm.maxHealth}永久}` : ''}`
     )
   }
 

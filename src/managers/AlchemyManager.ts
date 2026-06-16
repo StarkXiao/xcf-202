@@ -4,7 +4,9 @@ import type {
   Recipe,
   Pill,
   Player,
-  ActivePillBuff
+  ActivePillBuff,
+  PermanentPillRecord,
+  PermanentStatsBonus
 } from '../types'
 import {
   HERBS,
@@ -13,7 +15,9 @@ import {
   HERB_DROP_TABLE,
   getHerbById,
   getPillById,
-  getRecipeById
+  getRecipeById,
+  getPillUseLimit,
+  isPermanentPill
 } from '../data/alchemyData'
 import { SaveManager } from './SaveManager'
 
@@ -37,7 +41,14 @@ export class AlchemyManager {
       herbs: [],
       pills: [],
       unlockedRecipes: initialUnlocked,
-      activeBuffs: []
+      activeBuffs: [],
+      permanentRecords: [],
+      permanentBonus: {
+        maxHealth: 0,
+        maxMana: 0,
+        attack: 0,
+        defense: 0
+      }
     }
   }
 
@@ -51,6 +62,15 @@ export class AlchemyManager {
       data.unlockedRecipes = RECIPES.filter(r => r.unlocked).map(r => r.id)
     }
     if (!data.activeBuffs) data.activeBuffs = []
+    if (!data.permanentRecords) data.permanentRecords = []
+    if (!data.permanentBonus) {
+      data.permanentBonus = {
+        maxHealth: 0,
+        maxMana: 0,
+        attack: 0,
+        defense: 0
+      }
+    }
     return data
   }
 
@@ -182,6 +202,31 @@ export class AlchemyManager {
     }
   }
 
+  getPermanentUsedCount(alchemy: AlchemyData, pillId: string): number {
+    const record = alchemy.permanentRecords.find(r => r.pillId === pillId)
+    return record ? record.usedCount : 0
+  }
+
+  addPermanentRecord(alchemy: AlchemyData, pillId: string): void {
+    const existing = alchemy.permanentRecords.find(r => r.pillId === pillId)
+    if (existing) {
+      existing.usedCount++
+    } else {
+      alchemy.permanentRecords.push({
+        pillId,
+        usedCount: 1
+      })
+    }
+  }
+
+  getPermanentBonus(alchemy: AlchemyData): PermanentStatsBonus {
+    return alchemy.permanentBonus
+  }
+
+  getPermanentLimit(pillId: string): number {
+    return getPillUseLimit(pillId)
+  }
+
   usePill(alchemy: AlchemyData, pillId: string, player: Player): { success: boolean; effects: string[]; reason?: string } {
     const pill = getPillById(pillId)
     if (!pill) return { success: false, effects: [], reason: '丹药不存在' }
@@ -194,6 +239,15 @@ export class AlchemyManager {
       const activeBuff = alchemy.activeBuffs.find(b => b.pillId === pillId)
       if (activeBuff && activeBuff.endTime > Date.now()) {
         return { success: false, effects: [], reason: '该丹药效果正在生效中' }
+      }
+    }
+
+    const isPermanent = isPermanentPill(pill)
+    if (isPermanent) {
+      const limit = getPillUseLimit(pillId)
+      const usedCount = this.getPermanentUsedCount(alchemy, pillId)
+      if (limit > 0 && usedCount >= limit) {
+        return { success: false, effects: [], reason: `已达服用上限 (${usedCount}/${limit})` }
       }
     }
 
@@ -214,15 +268,44 @@ export class AlchemyManager {
           break
         case 'exp':
           const saveManager = SaveManager.getInstance()
-          saveManager.addExp(player, effect.value)
+          saveManager.addExp(player, effect.value, alchemy.permanentBonus)
           effects.push(`获得经验 +${effect.value}`)
           break
         case 'health':
-          player.maxHealth += effect.value
-          player.health += effect.value
-          effects.push(`最大生命永久 +${effect.value}`)
+          if (!effect.duration) {
+            alchemy.permanentBonus.maxHealth += effect.value
+            player.maxHealth += effect.value
+            player.health += effect.value
+            effects.push(`最大生命永久 +${effect.value}`)
+          }
+          break
+        case 'mana':
+          if (!effect.duration) {
+            alchemy.permanentBonus.maxMana += effect.value
+            player.maxMana += effect.value
+            player.mana += effect.value
+            effects.push(`最大灵力永久 +${effect.value}`)
+          }
           break
         case 'attack':
+          if (effect.duration) {
+            const existingBuff = alchemy.activeBuffs.find(b => b.pillId === pillId)
+            if (existingBuff) {
+              existingBuff.endTime = now + effect.duration
+            } else {
+              alchemy.activeBuffs.push({
+                pillId,
+                effects: pill.effects.filter(e => e.duration),
+                endTime: now + effect.duration
+              })
+            }
+            effects.push(`攻击 +${effect.value}（${Math.floor(effect.duration / 60000)}分钟）`)
+          } else {
+            alchemy.permanentBonus.attack += effect.value
+            player.attack += effect.value
+            effects.push(`攻击永久 +${effect.value}`)
+          }
+          break
         case 'defense':
           if (effect.duration) {
             const existingBuff = alchemy.activeBuffs.find(b => b.pillId === pillId)
@@ -235,11 +318,18 @@ export class AlchemyManager {
                 endTime: now + effect.duration
               })
             }
-            const effectName = effect.type === 'attack' ? '攻击' : '防御'
-            effects.push(`${effectName} +${effect.value}（${Math.floor(effect.duration / 60000)}分钟）`)
+            effects.push(`防御 +${effect.value}（${Math.floor(effect.duration / 60000)}分钟）`)
+          } else {
+            alchemy.permanentBonus.defense += effect.value
+            player.defense += effect.value
+            effects.push(`防御永久 +${effect.value}`)
           }
           break
       }
+    }
+
+    if (isPermanent) {
+      this.addPermanentRecord(alchemy, pillId)
     }
 
     return { success: true, effects }
