@@ -5,6 +5,7 @@ import { SaveManager } from '../managers/SaveManager'
 import { SkillSystem } from '../managers/SkillSystem'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { SpiritBeastManager } from '../managers/SpiritBeastManager'
+import { EquipmentManager } from '../managers/EquipmentManager'
 import { getBeastTemplate } from '../data/spiritBeastData'
 
 export class BattleScene extends Phaser.Scene {
@@ -33,6 +34,9 @@ export class BattleScene extends Phaser.Scene {
   private beastHpBars: (Phaser.GameObjects.Graphics | null)[] = []
   private activeBeastBuffs: { attack: number; defense: number; critRate: number; critDamage: number }[] = []
   private activeEnemyDebuffs: { defenseDown: number; attackDown: number }[] = []
+  private equipmentManager = EquipmentManager.getInstance()
+  private playerCritRate: number = 0
+  private playerCritDamage: number = 0.5
 
   constructor() {
     super({ key: 'BattleScene' })
@@ -45,9 +49,12 @@ export class BattleScene extends Phaser.Scene {
     this.player = save.player
     const buff = this.alchemyManager.getBuffBonus(save.alchemy)
     const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
-    this.saveManager.recalcPlayerStats(this.player, buff, permBonus)
+    const equipBonus = this.equipmentManager.calculateEquipmentBonus(save.equipment)
+    this.saveManager.recalcPlayerStats(this.player, buff, permBonus, equipBonus)
     this.player.health = Math.min(this.player.health, this.player.maxHealth)
     this.player.mana = Math.min(this.player.mana, this.player.maxMana)
+    this.playerCritRate = equipBonus.critRate
+    this.playerCritDamage = 0.5 + equipBonus.critDamage
 
     const stageId = data.stageId || save.currentStage
     const stageIndex = Math.min(Math.max(0, stageId - 1), STAGES.length - 1)
@@ -540,22 +547,35 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private showDamageText(x: number, y: number, damage: number, color: number, isHeal: boolean = false): void {
+  private showDamageText(x: number, y: number, damage: number, color: number, isHeal: boolean = false, isCrit: boolean = false): void {
     const prefix = isHeal ? '+' : '-'
-    const text = this.add.text(x, y, prefix + damage, {
+    const fontSize = isCrit ? '32px' : '24px'
+    const textContent = isCrit ? `💥${prefix}${damage}!` : `${prefix}${damage}`
+    const text = this.add.text(x, y, textContent, {
       fontFamily: '"Microsoft YaHei", serif',
-      fontSize: '24px',
+      fontSize,
       color: '#' + color.toString(16).padStart(6, '0'),
       fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 3
     }).setOrigin(0.5)
 
+    if (isCrit) {
+      text.setScale(0.5)
+      this.tweens.add({
+        targets: text,
+        scale: 1.5,
+        duration: 150,
+        yoyo: true,
+        ease: 'Power2'
+      })
+    }
+
     this.tweens.add({
       targets: text,
       y: y - 50,
       alpha: 0,
-      scale: 1.2,
+      scale: isCrit ? 1.2 : 1.2,
       duration: 800,
       ease: 'Cubic.Out',
       onComplete: () => text.destroy()
@@ -674,10 +694,21 @@ export class BattleScene extends Phaser.Scene {
     }
 
     this.isPlayerTurn = false
-    const damage = SkillSystem.useSkill(this.player, skill) || 0
+    const baseDamage = SkillSystem.useSkill(this.player, skill) || 0
     const enemy = this.enemies[this.currentEnemyIndex]
 
-    this.showMessage(skill.name + '！造成 ' + damage + ' 点伤害')
+    const isCrit = Math.random() < this.playerCritRate
+    let damage = baseDamage
+    let damageColor = 0xffd54f
+    let critText = ''
+
+    if (isCrit) {
+      damage = Math.floor(baseDamage * (1 + this.playerCritDamage))
+      damageColor = 0xff5722
+      critText = '暴击！'
+    }
+
+    this.showMessage(skill.name + '！' + critText + '造成 ' + damage + ' 点伤害')
 
     this.tweens.add({
       targets: this.playerSprite,
@@ -702,7 +733,7 @@ export class BattleScene extends Phaser.Scene {
         repeat: 2
       })
 
-      this.showDamageText(this.enemySprites[this.currentEnemyIndex].x, this.enemySprites[this.currentEnemyIndex].y - 30, actualDamage, 0xffd54f)
+      this.showDamageText(this.enemySprites[this.currentEnemyIndex].x, this.enemySprites[this.currentEnemyIndex].y - 30, actualDamage, damageColor, false, isCrit)
       this.updateUI()
 
       this.time.delayedCall(600, () => {
@@ -857,6 +888,10 @@ export class BattleScene extends Phaser.Scene {
     const save = this.saveManager.loadGame()!
     const herbDrops = this.alchemyManager.rollHerbDrops(this.stage.id)
     this.alchemyManager.applyHerbDrops(save.alchemy, herbDrops)
+
+    const materialDrops = this.equipmentManager.rollMaterialDrops(this.stage.id)
+    this.equipmentManager.applyMaterialDrops(save.equipment, materialDrops)
+    this.equipmentManager.checkTemplateUnlock(save.equipment, save.highestStage)
 
     const result: BattleResult = {
       victory: true,

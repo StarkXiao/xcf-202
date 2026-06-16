@@ -8,6 +8,7 @@ import { ResultScene } from '../scenes/ResultScene'
 import { AlchemyScene } from '../scenes/AlchemyScene'
 import { SpiritBeastScene } from '../scenes/SpiritBeastScene'
 import { EncounterScene } from '../scenes/EncounterScene'
+import { EquipmentScene } from '../scenes/EquipmentScene'
 import { SaveManager } from '../managers/SaveManager'
 
 export function createGame(container: HTMLDivElement): Phaser.Game {
@@ -24,7 +25,7 @@ export function createGame(container: HTMLDivElement): Phaser.Game {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [OpeningScene, MenuScene, BattleScene, TreasureScene, SectScene, ResultScene, AlchemyScene, SpiritBeastScene, EncounterScene]
+    scene: [OpeningScene, MenuScene, BattleScene, TreasureScene, SectScene, ResultScene, AlchemyScene, SpiritBeastScene, EncounterScene, EquipmentScene]
   }
 
   return new Phaser.Game(config)

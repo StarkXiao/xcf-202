@@ -269,17 +269,6 @@ export interface AlchemyData {
   permanentBonus: PermanentStatsBonus
 }
 
-export interface GameSave {
-  player: Player
-  sect: Sect
-  alchemy: AlchemyData
-  spiritBeast: SpiritBeastData
-  encounter: EncounterProgress
-  currentStage: number
-  highestStage: number
-  lastPlayTime: number
-}
-
 export type SpiritBeastRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic'
 
 export interface SpiritBeastSkill {
@@ -424,4 +413,95 @@ export interface EncounterProgress {
   lastDailyReset: number
 }
 
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter'
+export type EquipmentQuality = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic'
+export type EquipmentSlot = 'weapon' | 'armor' | 'helmet' | 'boots' | 'ring' | 'necklace'
+export type StatType = 'attack' | 'defense' | 'maxHealth' | 'maxMana' | 'critRate' | 'critDamage'
+
+export interface EquipmentStat {
+  type: StatType
+  value: number
+  isPercentage: boolean
+}
+
+export interface EquipmentTemplate {
+  id: string
+  name: string
+  description: string
+  slot: EquipmentSlot
+  baseQuality: EquipmentQuality
+  baseStats: EquipmentStat[]
+  icon: string
+  color: number
+  craftMaterials: { materialId: string; amount: number }[]
+  goldCost: number
+  spiritCost: number
+  minStage: number
+}
+
+export interface Equipment {
+  id: string
+  templateId: string
+  name: string
+  slot: EquipmentSlot
+  quality: EquipmentQuality
+  level: number
+  maxLevel: number
+  stats: EquipmentStat[]
+  extraStats: EquipmentStat[]
+  icon: string
+  color: number
+  isEquipped: boolean
+  equipPosition: number | null
+  forgeCount: number
+}
+
+export interface ForgeMaterial {
+  id: string
+  name: string
+  description: string
+  rarity: EquipmentQuality
+  color: number
+  icon: string
+}
+
+export interface EquipmentData {
+  materials: { materialId: string; quantity: number }[]
+  equipments: Equipment[]
+  equipped: (string | null)[]
+  unlockedTemplates: string[]
+}
+
+export interface ForgeResult {
+  success: boolean
+  equipment?: Equipment
+  reason?: string
+}
+
+export interface AdvanceResult {
+  success: boolean
+  newQuality?: EquipmentQuality
+  reason?: string
+}
+
+export interface EquipmentBonus {
+  attack: number
+  defense: number
+  maxHealth: number
+  maxMana: number
+  critRate: number
+  critDamage: number
+}
+
+export interface GameSave {
+  player: Player
+  sect: Sect
+  alchemy: AlchemyData
+  spiritBeast: SpiritBeastData
+  encounter: EncounterProgress
+  equipment: EquipmentData
+  currentStage: number
+  highestStage: number
+  lastPlayTime: number
+}
+
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment'

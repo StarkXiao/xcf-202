@@ -1,9 +1,10 @@
-import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus } from '../types'
+import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus, EquipmentBonus } from '../types'
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
 import { SectManager } from './SectManager'
 import { AlchemyManager } from './AlchemyManager'
 import { SpiritBeastManager } from './SpiritBeastManager'
 import { EncounterManager } from './EncounterManager'
+import { EquipmentManager } from './EquipmentManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -41,12 +42,14 @@ export class SaveManager {
     const alchemyManager = AlchemyManager.getInstance()
     const spiritBeastManager = SpiritBeastManager.getInstance()
     const encounterManager = EncounterManager.getInstance()
+    const equipmentManager = EquipmentManager.getInstance()
     return {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
       alchemy: alchemyManager.createInitialAlchemyData(),
       spiritBeast: spiritBeastManager.createInitialSpiritBeastData(),
       encounter: encounterManager.createInitialEncounterProgress(),
+      equipment: equipmentManager.createInitialEquipmentData(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
@@ -123,6 +126,9 @@ export class SaveManager {
     const encounterManager = EncounterManager.getInstance()
     save.encounter = encounterManager.validateEncounterProgress(save.encounter)
 
+    const equipmentManager = EquipmentManager.getInstance()
+    save.equipment = equipmentManager.validateEquipmentData(save.equipment)
+
     return save
   }
 
@@ -134,7 +140,7 @@ export class SaveManager {
     localStorage.removeItem(SAVE_KEY)
   }
 
-  recalcPlayerStats(player: Player, alchemyBuff?: { attack: number; defense: number }, permanentBonus?: PermanentStatsBonus): Player {
+  recalcPlayerStats(player: Player, alchemyBuff?: { attack: number; defense: number }, permanentBonus?: PermanentStatsBonus, equipmentBonus?: EquipmentBonus): Player {
     let bonusAttack = 0
     let bonusDefense = 0
     let bonusHealth = 0
@@ -157,10 +163,15 @@ export class SaveManager {
     const permAttack = permanentBonus?.attack || 0
     const permDefense = permanentBonus?.defense || 0
 
-    player.maxHealth = baseHealth + bonusHealth + permHealth
-    player.maxMana = 50 + (player.level - 1) * 10 + permMana
-    player.attack = baseAttack + bonusAttack + buffAttack + permAttack
-    player.defense = baseDefense + bonusDefense + buffDefense + permDefense
+    const equipAttack = equipmentBonus?.attack || 0
+    const equipDefense = equipmentBonus?.defense || 0
+    const equipHealth = equipmentBonus?.maxHealth || 0
+    const equipMana = equipmentBonus?.maxMana || 0
+
+    player.maxHealth = Math.floor((baseHealth + bonusHealth + permHealth + equipHealth) * (1 + (equipmentBonus?.maxHealth || 0)))
+    player.maxMana = Math.floor((50 + (player.level - 1) * 10 + permMana + equipMana) * (1 + (equipmentBonus?.maxMana || 0)))
+    player.attack = Math.floor((baseAttack + bonusAttack + buffAttack + permAttack + equipAttack) * (1 + (equipmentBonus?.attack || 0)))
+    player.defense = Math.floor((baseDefense + bonusDefense + buffDefense + permDefense + equipDefense) * (1 + (equipmentBonus?.defense || 0)))
 
     if (player.health > player.maxHealth) player.health = player.maxHealth
     if (player.mana > player.maxMana) player.mana = player.maxMana
