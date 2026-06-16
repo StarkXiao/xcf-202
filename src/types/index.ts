@@ -273,9 +273,111 @@ export interface GameSave {
   player: Player
   sect: Sect
   alchemy: AlchemyData
+  spiritBeast: SpiritBeastData
   currentStage: number
   highestStage: number
   lastPlayTime: number
 }
 
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy'
+export type SpiritBeastRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic'
+
+export interface SpiritBeastSkill {
+  id: string
+  name: string
+  description: string
+  type: 'attack' | 'support' | 'heal' | 'buff' | 'debuff'
+  damage?: number
+  heal?: number
+  buffEffect?: {
+    type: 'attack' | 'defense' | 'critRate' | 'critDamage'
+    value: number
+    duration: number
+  }
+  debuffEffect?: {
+    type: 'defenseDown' | 'attackDown' | 'slow' | 'burn'
+    value: number
+    duration: number
+  }
+  cooldown: number
+  currentCooldown: number
+  unlockStage: number
+  color: number
+  icon: string
+}
+
+export interface SpiritBeastTemplate {
+  id: string
+  name: string
+  description: string
+  rarity: SpiritBeastRarity
+  baseHealth: number
+  baseAttack: number
+  baseDefense: number
+  growthHealth: number
+  growthAttack: number
+  growthDefense: number
+  baseExpToNext: number
+  maxLevel: number
+  maxStage: number
+  skills: SpiritBeastSkill[]
+  captureRate: number
+  feedItems: { itemId: string; expGain: number }[]
+  evolveRequirements: {
+    stage: number
+    gold: number
+    spirit: number
+    items?: { itemId: string; amount: number }[]
+  }[]
+  color: number
+  icon: string
+  battleSprite: {
+    bodyColor: number
+    eyeColor: number
+    size: number
+  }
+}
+
+export interface SpiritBeast {
+  id: string
+  templateId: string
+  name: string
+  level: number
+  exp: number
+  expToNext: number
+  stage: number
+  health: number
+  maxHealth: number
+  attack: number
+  defense: number
+  skills: SpiritBeastSkill[]
+  rarity: SpiritBeastRarity
+  color: number
+  icon: string
+  isInBattle: boolean
+  battlePosition: number | null
+  affection: number
+  captureTime: number
+}
+
+export interface SpiritBeastData {
+  beasts: SpiritBeast[]
+  battleTeam: (string | null)[]
+  captureItems: { itemId: string; quantity: number }[]
+  feedItems: { itemId: string; quantity: number }[]
+  evolveItems: { itemId: string; quantity: number }[]
+  unlockedBeastTemplates: string[]
+}
+
+export interface CaptureResult {
+  success: boolean
+  beast?: SpiritBeast
+  message: string
+}
+
+export interface BattleBeastData {
+  beast: SpiritBeast
+  sprite: Phaser.GameObjects.Container | null
+  currentCooldowns: Map<string, number>
+}
+
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast'

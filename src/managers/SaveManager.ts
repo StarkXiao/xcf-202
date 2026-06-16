@@ -2,6 +2,7 @@ import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus } from '../
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
 import { SectManager } from './SectManager'
 import { AlchemyManager } from './AlchemyManager'
+import { SpiritBeastManager } from './SpiritBeastManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -37,10 +38,12 @@ export class SaveManager {
   createNewSave(): GameSave {
     const sectManager = SectManager.getInstance()
     const alchemyManager = AlchemyManager.getInstance()
+    const spiritBeastManager = SpiritBeastManager.getInstance()
     return {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
       alchemy: alchemyManager.createInitialAlchemyData(),
+      spiritBeast: spiritBeastManager.createInitialSpiritBeastData(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
@@ -110,6 +113,9 @@ export class SaveManager {
 
     const alchemyManager = AlchemyManager.getInstance()
     save.alchemy = alchemyManager.validateAlchemyData(save.alchemy)
+
+    const spiritBeastManager = SpiritBeastManager.getInstance()
+    save.spiritBeast = spiritBeastManager.validateSpiritBeastData(save.spiritBeast)
 
     return save
   }

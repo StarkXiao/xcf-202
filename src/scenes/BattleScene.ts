@@ -1,9 +1,11 @@
 import Phaser from 'phaser'
-import type { Player, Enemy, Stage, Skill, BattleResult } from '../types'
+import type { Player, Enemy, Stage, Skill, BattleResult, SpiritBeast, SpiritBeastSkill } from '../types'
 import { STAGES } from '../data/gameData'
 import { SaveManager } from '../managers/SaveManager'
 import { SkillSystem } from '../managers/SkillSystem'
 import { AlchemyManager } from '../managers/AlchemyManager'
+import { SpiritBeastManager } from '../managers/SpiritBeastManager'
+import { getBeastTemplate } from '../data/spiritBeastData'
 
 export class BattleScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -25,6 +27,12 @@ export class BattleScene extends Phaser.Scene {
   private expGoldText!: Phaser.GameObjects.Text
   private turnText!: Phaser.GameObjects.Text
   private messageText!: Phaser.GameObjects.Text
+  private spiritBeastManager = SpiritBeastManager.getInstance()
+  private battleBeasts: (SpiritBeast | null)[] = []
+  private beastSprites: (Phaser.GameObjects.Container | null)[] = []
+  private beastHpBars: (Phaser.GameObjects.Graphics | null)[] = []
+  private activeBeastBuffs: { attack: number; defense: number; critRate: number; critDamage: number }[] = []
+  private activeEnemyDebuffs: { defenseDown: number; attackDown: number }[] = []
 
   constructor() {
     super({ key: 'BattleScene' })
@@ -48,6 +56,20 @@ export class BattleScene extends Phaser.Scene {
     this.currentEnemyIndex = 0
     this.isPlayerTurn = true
     this.battleEnded = false
+
+    this.battleBeasts = this.spiritBeastManager.getBattleTeam(save.spiritBeast)
+    this.activeBeastBuffs = this.battleBeasts.map(() => ({ attack: 0, defense: 0, critRate: 0, critDamage: 0 }))
+    this.activeEnemyDebuffs = this.enemies.map(() => ({ defenseDown: 0, attackDown: 0 }))
+
+    this.battleBeasts.forEach(beast => {
+      if (beast) {
+        beast.skills.forEach(skill => {
+          skill.currentCooldown = 0
+        })
+        this.spiritBeastManager.recalcBeastStats(beast)
+        beast.health = beast.maxHealth
+      }
+    })
   }
 
   create(): void {
@@ -78,6 +100,7 @@ export class BattleScene extends Phaser.Scene {
     this.updateExpGoldText()
 
     this.createPlayer(width, height)
+    this.createBattleBeasts(width, height)
     this.createEnemies(width, height)
     this.createSkillBar(width, height)
     this.createBackButton(width, height)
@@ -258,6 +281,295 @@ export class BattleScene extends Phaser.Scene {
     })
   }
 
+  private createBattleBeasts(width: number, height: number): void {
+    const startX = width * 0.05
+    const startY = height * 0.65
+    const spacing = 80
+
+    this.battleBeasts.forEach((beast, index) => {
+      if (beast) {
+        const x = startX + index * spacing
+        const y = startY
+        this.createBeastSprite(beast, index, x, y)
+      } else {
+        this.beastSprites.push(null)
+        this.beastHpBars.push(null)
+      }
+    })
+  }
+
+  private createBeastSprite(beast: SpiritBeast, index: number, x: number, y: number): void {
+    const template = getBeastTemplate(beast.templateId)
+    if (!template) return
+
+    const container = this.add.container(x, y)
+    const spriteConfig = template.battleSprite
+    const size = spriteConfig.size * (1 + (beast.stage - 1) * 0.1)
+
+    const body = this.add.graphics()
+    body.fillStyle(spriteConfig.bodyColor, 1)
+    body.fillCircle(0, 0, size / 2)
+    body.fillStyle(0x000000, 0.2)
+    body.fillCircle(0, 0, size / 2 - 6)
+
+    const eye1 = this.add.graphics()
+    eye1.fillStyle(0xffffff)
+    eye1.fillCircle(-size / 5, -size / 8, size / 10)
+    eye1.fillStyle(spriteConfig.eyeColor)
+    eye1.fillCircle(-size / 5, -size / 8, size / 20)
+
+    const eye2 = this.add.graphics()
+    eye2.fillStyle(0xffffff)
+    eye2.fillCircle(size / 5, -size / 8, size / 10)
+    eye2.fillStyle(spriteConfig.eyeColor)
+    eye2.fillCircle(size / 5, -size / 8, size / 20)
+
+    const glow = this.add.graphics()
+    glow.lineStyle(2, beast.color, 0.5)
+    glow.strokeCircle(0, 0, size / 2 + 5)
+
+    container.add([body, eye1, eye2, glow])
+    container.setSize(size, size)
+
+    this.beastSprites.push(container)
+
+    const name = this.add.text(x, y + size / 2 + 10, beast.name, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '12px',
+      color: '#' + beast.color.toString(16).padStart(6, '0')
+    }).setOrigin(0.5)
+
+    const barWidth = 60
+    const barX = x - barWidth / 2
+    const barY = y + size / 2 + 25
+
+    const hpBar = this.add.graphics()
+    this.drawBar(hpBar, barX, barY, barWidth, 8, beast.health / beast.maxHealth, 0x81c784, 0x4e342e)
+    this.beastHpBars.push(hpBar)
+
+    this.tweens.add({
+      targets: container,
+      y: y - 4,
+      duration: 1800 + index * 150,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    })
+  }
+
+  private beastTurn(): void {
+    const aliveBeasts = this.battleBeasts.map((beast, index) => ({ beast, index }))
+      .filter(({ beast }) => beast && beast.health > 0)
+
+    if (aliveBeasts.length === 0) {
+      this.enemyTurn()
+      return
+    }
+
+    let beastIndex = 0
+    const executeNextBeast = () => {
+      if (beastIndex >= aliveBeasts.length || this.battleEnded) {
+        this.enemyTurn()
+        return
+      }
+
+      const { beast, index } = aliveBeasts[beastIndex]
+      if (!beast) {
+        beastIndex++
+        executeNextBeast()
+        return
+      }
+
+      this.executeBeastAction(beast, index, () => {
+        beastIndex++
+        this.time.delayedCall(300, executeNextBeast)
+      })
+    }
+
+    executeNextBeast()
+  }
+
+  private executeBeastAction(beast: SpiritBeast, beastIndex: number, onComplete: () => void): void {
+    const availableSkills = this.spiritBeastManager.getAvailableSkills(beast)
+    const usableSkills = availableSkills.filter(skill => skill.currentCooldown === 0)
+
+    if (usableSkills.length > 0 && Math.random() < 0.6) {
+      const skill = usableSkills[Math.floor(Math.random() * usableSkills.length)]
+      this.useBeastSkill(beast, beastIndex, skill, onComplete)
+    } else {
+      this.beastBasicAttack(beast, beastIndex, onComplete)
+    }
+  }
+
+  private useBeastSkill(beast: SpiritBeast, beastIndex: number, skill: SpiritBeastSkill, onComplete: () => void): void {
+    this.spiritBeastManager.useSkill(beast, skill.id)
+    this.showMessage(`${beast.name} 使用了 ${skill.name}！`)
+
+    const beastSprite = this.beastSprites[beastIndex]
+    const enemySprite = this.enemySprites[this.currentEnemyIndex]
+    const enemy = this.enemies[this.currentEnemyIndex]
+
+    if (beastSprite) {
+      this.tweens.add({
+        targets: beastSprite,
+        scale: 1.2,
+        duration: 200,
+        yoyo: true,
+        ease: 'Power2'
+      })
+    }
+
+    this.time.delayedCall(200, () => {
+      if (skill.type === 'attack' || skill.type === 'debuff') {
+        if (skill.damage) {
+          const attackBonus = this.activeBeastBuffs[beastIndex]?.attack || 0
+          const totalAttack = beast.attack + attackBonus
+          const baseDamage = skill.damage + totalAttack * 0.5
+          const defenseReduction = this.activeEnemyDebuffs[this.currentEnemyIndex]?.defenseDown || 0
+          const effectiveDefense = Math.max(0, enemy.defense - defenseReduction)
+          const actualDamage = Math.max(1, Math.floor(baseDamage - effectiveDefense * 0.3))
+
+          enemy.health -= actualDamage
+          this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, skill.color)
+
+          if (enemySprite) {
+            this.tweens.add({
+              targets: enemySprite,
+              x: enemySprite.x + '+=15',
+              alpha: 0.6,
+              duration: 100,
+              yoyo: true,
+              repeat: 2
+            })
+          }
+
+          this.createBeastSkillEffect(skill.color, enemySprite.x, enemySprite.y)
+        }
+
+        if (skill.debuffEffect) {
+          const debuff = this.activeEnemyDebuffs[this.currentEnemyIndex]
+          if (skill.debuffEffect.type === 'defenseDown') {
+            debuff.defenseDown = Math.max(debuff.defenseDown, skill.debuffEffect.value)
+          } else if (skill.debuffEffect.type === 'attackDown') {
+            debuff.attackDown = Math.max(debuff.attackDown, skill.debuffEffect.value)
+          }
+          this.showMessage(`敌人受到 ${skill.debuffEffect.type === 'defenseDown' ? '降低防御' : '降低攻击'} 效果！`)
+        }
+      }
+
+      if (skill.type === 'heal' || (skill.type === 'attack' && skill.heal)) {
+        const healAmount = skill.heal || 0
+        this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount)
+        this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, healAmount, 0x81c784, true)
+        this.showMessage(`${beast.name} 治愈了你 ${healAmount} 点生命！`)
+      }
+
+      if (skill.type === 'buff' && skill.buffEffect) {
+        const buff = this.activeBeastBuffs[beastIndex]
+        if (skill.buffEffect.type === 'attack') {
+          buff.attack = Math.max(buff.attack, skill.buffEffect.value)
+        } else if (skill.buffEffect.type === 'defense') {
+          buff.defense = Math.max(buff.defense, skill.buffEffect.value)
+        } else if (skill.buffEffect.type === 'critRate') {
+          buff.critRate = Math.max(buff.critRate, skill.buffEffect.value)
+        } else if (skill.buffEffect.type === 'critDamage') {
+          buff.critDamage = Math.max(buff.critDamage, skill.buffEffect.value)
+        }
+        this.showMessage(`你获得了 ${skill.buffEffect.type === 'attack' ? '攻击提升' : skill.buffEffect.type === 'defense' ? '防御提升' : '暴击提升'} 效果！`)
+      }
+
+      this.updateUI()
+      this.time.delayedCall(500, onComplete)
+    })
+  }
+
+  private beastBasicAttack(beast: SpiritBeast, beastIndex: number, onComplete: () => void): void {
+    const beastSprite = this.beastSprites[beastIndex]
+    const enemySprite = this.enemySprites[this.currentEnemyIndex]
+    const enemy = this.enemies[this.currentEnemyIndex]
+
+    if (beastSprite) {
+      this.tweens.add({
+        targets: beastSprite,
+        x: beastSprite.x + 60,
+        duration: 250,
+        yoyo: true,
+        ease: 'Power2'
+      })
+    }
+
+    this.time.delayedCall(250, () => {
+      const attackBonus = this.activeBeastBuffs[beastIndex]?.attack || 0
+      const totalAttack = beast.attack + attackBonus
+      const defenseReduction = this.activeEnemyDebuffs[this.currentEnemyIndex]?.defenseDown || 0
+      const effectiveDefense = Math.max(0, enemy.defense - defenseReduction)
+      const actualDamage = Math.max(1, Math.floor(totalAttack - effectiveDefense * 0.3))
+
+      enemy.health -= actualDamage
+      this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, beast.color)
+
+      if (enemySprite) {
+        this.tweens.add({
+          targets: enemySprite,
+          x: enemySprite.x + '+=10',
+          alpha: 0.7,
+          duration: 100,
+          yoyo: true
+        })
+      }
+
+      this.createBeastSkillEffect(beast.color, enemySprite.x, enemySprite.y)
+      this.updateUI()
+      this.time.delayedCall(400, onComplete)
+    })
+  }
+
+  private createBeastSkillEffect(color: number, x: number, y: number): void {
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8
+      const particle = this.add.circle(x, y, 5, color, 0.8)
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * 50,
+        y: y + Math.sin(angle) * 50,
+        alpha: 0,
+        scale: 0,
+        duration: 400,
+        onComplete: () => particle.destroy()
+      })
+    }
+  }
+
+  private showDamageText(x: number, y: number, damage: number, color: number, isHeal: boolean = false): void {
+    const prefix = isHeal ? '+' : '-'
+    const text = this.add.text(x, y, prefix + damage, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '24px',
+      color: '#' + color.toString(16).padStart(6, '0'),
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5)
+
+    this.tweens.add({
+      targets: text,
+      y: y - 50,
+      alpha: 0,
+      scale: 1.2,
+      duration: 800,
+      ease: 'Cubic.Out',
+      onComplete: () => text.destroy()
+    })
+  }
+
+  private tickBeastCooldowns(): void {
+    this.battleBeasts.forEach(beast => {
+      if (beast) {
+        this.spiritBeastManager.tickCooldowns(beast)
+      }
+    })
+  }
+
   private createSkillBar(width: number, height: number): void {
     const skills = SkillSystem.getUnlockedSkills(this.player)
     const barY = height - 90
@@ -397,7 +709,7 @@ export class BattleScene extends Phaser.Scene {
         if (enemy.health <= 0) {
           this.enemyDefeated()
         } else {
-          this.enemyTurn()
+          this.beastTurn()
         }
       })
     })
@@ -429,27 +741,6 @@ export class BattleScene extends Phaser.Scene {
       alpha: 0,
       duration: 400,
       onComplete: () => slash.destroy()
-    })
-  }
-
-  private showDamageText(x: number, y: number, damage: number, color: number): void {
-    const text = this.add.text(x, y, '-' + damage, {
-      fontFamily: '"Microsoft YaHei", serif',
-      fontSize: '28px',
-      color: '#' + color.toString(16).padStart(6, '0'),
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5)
-
-    this.tweens.add({
-      targets: text,
-      y: y - 60,
-      alpha: 0,
-      scale: 1.3,
-      duration: 900,
-      ease: 'Cubic.Out',
-      onComplete: () => text.destroy()
     })
   }
 
@@ -547,6 +838,7 @@ export class BattleScene extends Phaser.Scene {
           } else {
             SkillSystem.tickCooldowns(this.player)
             SkillSystem.restoreMana(this.player, 8)
+            this.tickBeastCooldowns()
             this.isPlayerTurn = true
             this.showMessage('你的回合！选择一个技能')
             this.refreshSkillButtons()
@@ -583,6 +875,15 @@ export class BattleScene extends Phaser.Scene {
     const levelResult = this.saveManager.addExp(save.player, result.expGained, permBonus)
     this.alchemyManager.checkRecipeUnlock(save.alchemy, save.player.level)
 
+    this.battleBeasts.forEach((beast, index) => {
+      if (beast) {
+        const saveBeast = save.spiritBeast.beasts.find(b => b.id === beast.id)
+        if (saveBeast) {
+          saveBeast.health = beast.health
+        }
+      }
+    })
+
     if (this.stage.id >= save.highestStage) {
       save.highestStage = Math.min(this.stage.id + 1, STAGES.length)
     }
@@ -604,6 +905,16 @@ export class BattleScene extends Phaser.Scene {
 
     const save = this.saveManager.loadGame()!
     save.player = this.player
+
+    this.battleBeasts.forEach((beast, index) => {
+      if (beast) {
+        const saveBeast = save.spiritBeast.beasts.find(b => b.id === beast.id)
+        if (saveBeast) {
+          saveBeast.health = beast.maxHealth
+        }
+      }
+    })
+
     this.saveManager.saveGame(save)
 
     this.showMessage('你被击败了...')
@@ -640,11 +951,23 @@ export class BattleScene extends Phaser.Scene {
     this.updateExpGoldText()
 
     this.enemies.forEach((enemy, index) => {
-      if (index < this.hpBarsEnemy.length) {
+      if (index < this.hpBarsEnemy.length && this.hpBarsEnemy[index]) {
         const barWidth = 140
         const barX = this.enemySprites[index].x - barWidth / 2
         const barY = this.enemySprites[index].y + enemy.size / 2 + 42
         this.drawBar(this.hpBarsEnemy[index], barX, barY, barWidth, 14, Math.max(0, enemy.health) / enemy.maxHealth, 0xe53935, 0x4e342e)
+      }
+    })
+
+    this.battleBeasts.forEach((beast, index) => {
+      if (beast && this.beastHpBars[index] && this.beastSprites[index]) {
+        const template = getBeastTemplate(beast.templateId)
+        if (!template) return
+        const size = template.battleSprite.size * (1 + (beast.stage - 1) * 0.1)
+        const barWidth = 60
+        const barX = this.beastSprites[index].x - barWidth / 2
+        const barY = this.beastSprites[index].y + size / 2 + 25
+        this.drawBar(this.beastHpBars[index], barX, barY, barWidth, 8, Math.max(0, beast.health) / beast.maxHealth, 0x81c784, 0x4e342e)
       }
     })
   }
@@ -696,6 +1019,16 @@ export class BattleScene extends Phaser.Scene {
       if (this.battleEnded) return
       const save = this.saveManager.loadGame()!
       save.player = this.player
+
+      this.battleBeasts.forEach((beast, index) => {
+        if (beast) {
+          const saveBeast = save.spiritBeast.beasts.find(b => b.id === beast.id)
+          if (saveBeast) {
+            saveBeast.health = beast.health
+          }
+        }
+      })
+
       this.saveManager.saveGame(save)
       this.cameras.main.fadeOut(400)
       this.time.delayedCall(400, () => this.scene.start('MenuScene'))
