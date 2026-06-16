@@ -5,6 +5,7 @@ import { DungeonManager } from '../managers/DungeonManager'
 import { SkillSystem } from '../managers/SkillSystem'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
+import { MeridianManager } from '../managers/MeridianManager'
 import { DUNGEON_FLOOR_COLORS } from '../data/dungeonData'
 
 type DungeonPhase = 'map' | 'room_intro' | 'battle' | 'event' | 'reward' | 'floor_clear' | 'dungeon_complete' | 'dungeon_fail'
@@ -69,14 +70,21 @@ export class DungeonScene extends Phaser.Scene {
     const buff = this.alchemyManager.getBuffBonus(this.save.alchemy)
     const permBonus = this.alchemyManager.getPermanentBonus(this.save.alchemy)
     const equipBonus = this.equipmentManager.calculateEquipmentBonus(this.save.equipment)
-    this.saveManager.recalcPlayerStats(this.save.player, buff, permBonus, equipBonus)
+    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(this.save.meridian)
+    this.saveManager.recalcPlayerStats(this.save.player, buff, permBonus, equipBonus, meridBonus)
     const dungeonBuff = this.dungeonManager.getBuffBonus(this.progress)
     const maxHealthBonus = Math.floor(this.save.player.maxHealth * dungeonBuff.maxHealth)
     this.save.player.maxHealth += maxHealthBonus
     this.save.player.attack = Math.floor(this.save.player.attack * (1 + dungeonBuff.attack))
     this.save.player.defense = Math.floor(this.save.player.defense * (1 + dungeonBuff.defense))
+    this.save.player.critRate += dungeonBuff.critRate
+    this.save.player.critDamage += dungeonBuff.critDamage
     this.save.player.health = Math.min(this.save.player.health, this.save.player.maxHealth)
     this.save.player.mana = Math.min(this.save.player.mana, this.save.player.maxMana)
+
+    const meridianManager = MeridianManager.getInstance()
+    const newSkills = meridianManager.syncSkillsToPlayer(this.save.meridian, this.save.player)
+    this.save.player.skills.push(...newSkills)
   }
 
   create(): void {
@@ -291,7 +299,6 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     const enemies = this.dungeonManager.generateEnemiesForRoom(room, this.save.player.level)
-    const equipBonus = this.equipmentManager.calculateEquipmentBonus(this.save.equipment)
 
     this.battleState = {
       enemies,
@@ -302,13 +309,9 @@ export class DungeonScene extends Phaser.Scene {
       enemyHpBars: new Array(enemies.length).fill(null),
       enemyNames: new Array(enemies.length).fill(null),
       enemyDebuffs: enemies.map(() => ({ defenseDown: 0, attackDown: 0 })),
-      playerCritRate: equipBonus.critRate,
-      playerCritDamage: 0.5 + equipBonus.critDamage
+      playerCritRate: this.save.player.critRate,
+      playerCritDamage: this.save.player.critDamage
     }
-
-    const dungeonBuff = this.dungeonManager.getBuffBonus(this.progress)
-    this.battleState.playerCritRate += dungeonBuff.critRate
-    this.battleState.playerCritDamage += dungeonBuff.critDamage
 
     this.createBattlePlayer(width, height)
     this.createBattleEnemies(width, height)

@@ -3,6 +3,7 @@ import type { Player, Equipment, EquipmentTemplate, EquipmentData } from '../typ
 import { SaveManager } from '../managers/SaveManager'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
+import { MeridianManager } from '../managers/MeridianManager'
 import { getMaterialById, getAdvanceCost, QUALITY_NAMES } from '../data/equipmentData'
 
 type TabType = 'forge' | 'inventory' | 'equip'
@@ -36,7 +37,8 @@ export class EquipmentScene extends Phaser.Scene {
     this.equipmentData = save.equipment
     const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
     const equipBonus = this.equipmentManager.calculateEquipmentBonus(this.equipmentData)
-    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus, equipBonus)
+    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(save.meridian)
+    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus, equipBonus, meridBonus)
   }
 
   create(): void {
@@ -822,7 +824,8 @@ export class EquipmentScene extends Phaser.Scene {
     const save = this.saveManager.loadGame()!
     const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
     const equipBonus = this.equipmentManager.calculateEquipmentBonus(this.equipmentData)
-    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus, equipBonus)
+    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(save.meridian)
+    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus, equipBonus, meridBonus)
     this.updateResourceTexts()
   }
 

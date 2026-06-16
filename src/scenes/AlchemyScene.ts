@@ -2,6 +2,8 @@ import Phaser from 'phaser'
 import type { Player, AlchemyData, Recipe, Pill, Herb, InventoryItem, ActivePillBuff } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { AlchemyManager } from '../managers/AlchemyManager'
+import { EquipmentManager } from '../managers/EquipmentManager'
+import { MeridianManager } from '../managers/MeridianManager'
 import { HERBS, PILLS, getHerbById, getPillById, getRecipeById } from '../data/alchemyData'
 import { RARITY_COLORS, RARITY_NAMES } from '../data/sectData'
 
@@ -37,7 +39,9 @@ export class AlchemyScene extends Phaser.Scene {
     this.alchemyManager.getActiveBuffs(this.alchemy)
     const buff = this.alchemyManager.getBuffBonus(this.alchemy)
     const permBonus = this.alchemyManager.getPermanentBonus(this.alchemy)
-    this.saveManager.recalcPlayerStats(this.player, buff, permBonus)
+    const equipBonus = EquipmentManager.getInstance().calculateEquipmentBonus(save.equipment)
+    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(save.meridian)
+    this.saveManager.recalcPlayerStats(this.player, buff, permBonus, equipBonus, meridBonus)
   }
 
   create(): void {
@@ -749,7 +753,9 @@ export class AlchemyScene extends Phaser.Scene {
     if (result.success) {
       const buff = this.alchemyManager.getBuffBonus(save.alchemy)
       const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
-      this.saveManager.recalcPlayerStats(this.player, buff, permBonus)
+      const equipBonus = EquipmentManager.getInstance().calculateEquipmentBonus(save.equipment)
+      const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(save.meridian)
+      this.saveManager.recalcPlayerStats(this.player, buff, permBonus, equipBonus, meridBonus)
       this.showMessage(`💊 服用成功！${result.effects.join('，')}`)
       this.cameras.main.flash(300, 255, 213, 79)
     } else {

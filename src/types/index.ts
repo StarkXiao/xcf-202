@@ -35,6 +35,8 @@ export interface Player {
   maxMana: number
   attack: number
   defense: number
+  critRate: number
+  critDamage: number
   gold: number
   spirit: number
   skills: Skill[]

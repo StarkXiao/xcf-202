@@ -2,6 +2,8 @@ import Phaser from 'phaser'
 import type { Player, Treasure } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { AlchemyManager } from '../managers/AlchemyManager'
+import { EquipmentManager } from '../managers/EquipmentManager'
+import { MeridianManager } from '../managers/MeridianManager'
 
 export class TreasureScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -22,7 +24,9 @@ export class TreasureScene extends Phaser.Scene {
     const save = this.saveManager.loadGame()!
     this.player = save.player
     const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
-    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus)
+    const equipBonus = EquipmentManager.getInstance().calculateEquipmentBonus(save.equipment)
+    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(save.meridian)
+    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus, equipBonus, meridBonus)
   }
 
   create(): void {
@@ -340,7 +344,9 @@ export class TreasureScene extends Phaser.Scene {
 
     const save = this.saveManager.loadGame()!
     const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
-    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus)
+    const equipBonus = EquipmentManager.getInstance().calculateEquipmentBonus(save.equipment)
+    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(save.meridian)
+    this.saveManager.recalcPlayerStats(this.player, undefined, permBonus, equipBonus, meridBonus)
 
     save.player = this.player
     this.saveManager.saveGame(save)

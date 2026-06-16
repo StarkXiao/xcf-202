@@ -6,6 +6,7 @@ import { SkillSystem } from '../managers/SkillSystem'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { SpiritBeastManager } from '../managers/SpiritBeastManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
+import { MeridianManager } from '../managers/MeridianManager'
 import { getBeastTemplate } from '../data/spiritBeastData'
 
 export class BattleScene extends Phaser.Scene {
@@ -35,8 +36,7 @@ export class BattleScene extends Phaser.Scene {
   private activeBeastBuffs: { attack: number; defense: number; critRate: number; critDamage: number }[] = []
   private activeEnemyDebuffs: { defenseDown: number; attackDown: number }[] = []
   private equipmentManager = EquipmentManager.getInstance()
-  private playerCritRate: number = 0
-  private playerCritDamage: number = 0.5
+  private meridianManager = MeridianManager.getInstance()
 
   constructor() {
     super({ key: 'BattleScene' })
@@ -47,14 +47,14 @@ export class BattleScene extends Phaser.Scene {
   init(data: { stageId: number }): void {
     const save = this.saveManager.loadGame()!
     this.player = save.player
-    const buff = this.alchemyManager.getBuffBonus(save.alchemy)
-    const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
-    const equipBonus = this.equipmentManager.calculateEquipmentBonus(save.equipment)
-    this.saveManager.recalcPlayerStats(this.player, buff, permBonus, equipBonus)
+
+    this.saveManager.recalcPlayerStatsFromSave(save)
+
+    const newSkills = this.meridianManager.syncSkillsToPlayer(save.meridian, this.player)
+    this.player.skills.push(...newSkills)
+
     this.player.health = Math.min(this.player.health, this.player.maxHealth)
     this.player.mana = Math.min(this.player.mana, this.player.maxMana)
-    this.playerCritRate = equipBonus.critRate
-    this.playerCritDamage = 0.5 + equipBonus.critDamage
 
     const stageId = data.stageId || save.currentStage
     const stageIndex = Math.min(Math.max(0, stageId - 1), STAGES.length - 1)
@@ -697,13 +697,13 @@ export class BattleScene extends Phaser.Scene {
     const baseDamage = SkillSystem.useSkill(this.player, skill) || 0
     const enemy = this.enemies[this.currentEnemyIndex]
 
-    const isCrit = Math.random() < this.playerCritRate
+    const isCrit = Math.random() < this.player.critRate
     let damage = baseDamage
     let damageColor = 0xffd54f
     let critText = ''
 
     if (isCrit) {
-      damage = Math.floor(baseDamage * (1 + this.playerCritDamage))
+      damage = Math.floor(baseDamage * (1 + this.player.critDamage))
       damageColor = 0xff5722
       critText = '暴击！'
     }
@@ -907,7 +907,10 @@ export class BattleScene extends Phaser.Scene {
     save.player.gold += result.goldGained
     save.player.spirit += result.spiritGained
     const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
+    const equipBonus = this.equipmentManager.calculateEquipmentBonus(save.equipment)
+    const meridBonus = this.meridianManager.calculateMeridianBonus(save.meridian)
     const levelResult = this.saveManager.addExp(save.player, result.expGained, permBonus)
+    this.saveManager.recalcPlayerStats(save.player, undefined, permBonus, equipBonus, meridBonus)
     this.alchemyManager.checkRecipeUnlock(save.alchemy, save.player.level)
 
     this.battleBeasts.forEach((beast, index) => {

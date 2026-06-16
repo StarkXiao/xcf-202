@@ -31,6 +31,8 @@ export class SaveManager {
       maxMana: 50,
       attack: 20,
       defense: 10,
+      critRate: 0,
+      critDamage: 0.5,
       gold: 100,
       spirit: 0,
       skills: JSON.parse(JSON.stringify(INITIAL_SKILLS)),
@@ -144,6 +146,9 @@ export class SaveManager {
       if (save.player[field] === undefined) return null
     }
 
+    if (save.player.critRate === undefined) save.player.critRate = 0
+    if (save.player.critDamage === undefined) save.player.critDamage = 0.5
+
     const sectManager = SectManager.getInstance()
     if (!save.sect) {
       save.sect = sectManager.createInitialSect()
@@ -206,21 +211,40 @@ export class SaveManager {
     const equipDefense = equipmentBonus?.defense || 0
     const equipHealth = equipmentBonus?.maxHealth || 0
     const equipMana = equipmentBonus?.maxMana || 0
+    const equipCritRate = equipmentBonus?.critRate || 0
+    const equipCritDamage = equipmentBonus?.critDamage || 0
 
     const meridHealth = meridianBonus?.maxHealth || 0
     const meridMana = meridianBonus?.maxMana || 0
     const meridAttack = meridianBonus?.attack || 0
     const meridDefense = meridianBonus?.defense || 0
+    const meridCritRate = (meridianBonus?.critRate || 0) / 100
+    const meridCritDamage = (meridianBonus?.critDamage || 0) / 100
 
     player.maxHealth = Math.floor((baseHealth + bonusHealth + permHealth + equipHealth + meridHealth) * (1 + (equipmentBonus?.maxHealth || 0)))
     player.maxMana = Math.floor((50 + (player.level - 1) * 10 + permMana + equipMana + meridMana) * (1 + (equipmentBonus?.maxMana || 0)))
     player.attack = Math.floor((baseAttack + bonusAttack + buffAttack + permAttack + equipAttack + meridAttack) * (1 + (equipmentBonus?.attack || 0)))
     player.defense = Math.floor((baseDefense + bonusDefense + buffDefense + permDefense + equipDefense + meridDefense) * (1 + (equipmentBonus?.defense || 0)))
+    player.critRate = equipCritRate + meridCritRate
+    player.critDamage = 0.5 + equipCritDamage + meridCritDamage
 
     if (player.health > player.maxHealth) player.health = player.maxHealth
     if (player.mana > player.maxMana) player.mana = player.maxMana
 
     return player
+  }
+
+  recalcPlayerStatsFromSave(save: GameSave): Player {
+    const alchemyManager = AlchemyManager.getInstance()
+    const equipmentManager = EquipmentManager.getInstance()
+    const meridianManager = MeridianManager.getInstance()
+
+    const buff = alchemyManager.getBuffBonus(save.alchemy)
+    const permBonus = alchemyManager.getPermanentBonus(save.alchemy)
+    const equipBonus = equipmentManager.calculateEquipmentBonus(save.equipment)
+    const meridBonus = meridianManager.calculateMeridianBonus(save.meridian)
+
+    return this.recalcPlayerStats(save.player, buff, permBonus, equipBonus, meridBonus)
   }
 
   addExp(player: Player, exp: number, permanentBonus?: PermanentStatsBonus): { leveledUp: boolean; levels: number } {
