@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { Player, ShopData, ShopItem, ShopPurchaseRecord } from '../types'
+import type { GameSave, Player, ShopData, ShopItem, Treasure } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { ShopManager } from '../managers/ShopManager'
 import { AlchemyManager } from '../managers/AlchemyManager'
@@ -8,10 +8,35 @@ import { MeridianManager } from '../managers/MeridianManager'
 import { RARITY_COLORS, RARITY_NAMES, SHOP_CONFIG } from '../data/shopData'
 import { getHerbById, getPillById } from '../data/alchemyData'
 
+export const SHOP_TREASURES: Record<string, Omit<Treasure, 'level' | 'maxLevel'>> = {
+  'shop_treasure_yuhuan': {
+    id: 'treasure_yuhuan',
+    name: '聚灵玉环',
+    description: '佩戴后可加快灵力恢复速度，提升攻防属性。',
+    attackBonus: 15,
+    defenseBonus: 15,
+    healthBonus: 80,
+    upgradeCost: 400,
+    color: 0x69f0ae
+  },
+  'shop_treasure_xianjian': {
+    id: 'treasure_xianjian',
+    name: '仙剑碎片',
+    description: '上古仙剑的碎片，蕴含强大剑意，大幅提升攻击。',
+    attackBonus: 40,
+    defenseBonus: 10,
+    healthBonus: 50,
+    upgradeCost: 800,
+    color: 0x00e5ff
+  }
+}
+
 export class ShopScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
   private shopManager = ShopManager.getInstance()
   private alchemyManager = AlchemyManager.getInstance()
+  private equipmentManager = EquipmentManager.getInstance()
+  private save!: GameSave
   private player!: Player
   private shop!: ShopData
   private selectedItem: ShopItem | null = null
@@ -28,18 +53,19 @@ export class ShopScene extends Phaser.Scene {
   }
 
   init(): void {
-    const save = this.saveManager.loadGame()!
-    this.player = save.player
-    this.shop = save.shop
+    this.save = this.saveManager.loadGame()!
+    this.player = this.save.player
+    this.shop = this.save.shop
 
-    const buff = this.alchemyManager.getBuffBonus(save.alchemy)
-    const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
-    const equipBonus = EquipmentManager.getInstance().calculateEquipmentBonus(save.equipment)
-    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(save.meridian)
+    const buff = this.alchemyManager.getBuffBonus(this.save.alchemy)
+    const permBonus = this.alchemyManager.getPermanentBonus(this.save.alchemy)
+    const equipBonus = this.equipmentManager.calculateEquipmentBonus(this.save.equipment)
+    const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(this.save.meridian)
     this.saveManager.recalcPlayerStats(this.player, buff, permBonus, equipBonus, meridBonus)
 
     if (this.shop.items.length === 0) {
-      this.shopManager.refreshShop(this.shop, save.currentStage, this.player.gold)
+      this.shopManager.refreshShop(this.shop, this.save.currentStage, this.player.gold)
+      this.persistSave()
     }
   }
 
@@ -48,7 +74,7 @@ export class ShopScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x0a0a15)
     this.createBackground(width, height)
 
-    const title = this.add.text(width / 2, 45, '🏪 坊市交易', {
+    this.add.text(width / 2, 45, '🏪 坊市交易', {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '42px',
       color: '#ffd54f',
@@ -79,6 +105,10 @@ export class ShopScene extends Phaser.Scene {
     this.cameras.main.fadeIn(500)
   }
 
+  private persistSave(): void {
+    this.saveManager.saveGame(this.save)
+  }
+
   private createBackground(width: number, height: number): void {
     const colors = [0x4a148c, 0x1a237e, 0x311b92, 0x004d40, 0x1b5e20]
     for (let i = 0; i < 6; i++) {
@@ -91,7 +121,7 @@ export class ShopScene extends Phaser.Scene {
       )
     }
 
-    const particles = this.add.particles(0, 0, 'shop-particle', {
+    this.add.particles(0, 0, 'a-particle', {
       x: { min: 0, max: width },
       y: { min: 0, max: height },
       lifespan: { min: 4000, max: 8000 },
@@ -304,6 +334,7 @@ export class ShopScene extends Phaser.Scene {
 
     container.on('pointerdown', () => {
       this.selectedItem = item
+      this.buyQuantity = 1
       this.refreshItems()
       this.updateDetailPanel()
     })
@@ -551,7 +582,6 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private handleRefresh(): void {
-    const save = this.saveManager.loadGame()!
     const cost = this.shopManager.getRefreshCost(this.shop)
 
     if (cost !== null && this.player.gold < cost) {
@@ -559,7 +589,7 @@ export class ShopScene extends Phaser.Scene {
       return
     }
 
-    const result = this.shopManager.refreshShop(this.shop, save.currentStage, this.player.gold)
+    const result = this.shopManager.refreshShop(this.shop, this.save.currentStage, this.player.gold)
 
     if (cost !== null) {
       this.player.gold -= cost
@@ -567,6 +597,9 @@ export class ShopScene extends Phaser.Scene {
 
     this.selectedItem = null
     this.buyQuantity = 1
+
+    this.persistSave()
+
     this.refreshItems()
     this.updateDetailPanel()
     this.updateResourceText()
@@ -576,14 +609,17 @@ export class ShopScene extends Phaser.Scene {
     if (result.rareItems.length > 0) {
       this.cameras.main.flash(500, 255, 215, 79)
     }
-
-    this.saveManager.saveGame(save)
   }
 
   private handlePurchase(): void {
     if (!this.selectedItem) return
 
-    const save = this.saveManager.loadGame()!
+    const canDeliver = this.canDeliverItem(this.selectedItem)
+    if (!canDeliver.success) {
+      this.showMessage(canDeliver.reason || '无法购买该商品！')
+      return
+    }
+
     const result = this.shopManager.purchaseItem(
       this.shop,
       this.selectedItem.id,
@@ -606,32 +642,56 @@ export class ShopScene extends Phaser.Scene {
       this.selectedItem = null
     }
 
+    this.persistSave()
+
     this.refreshItems()
     this.updateDetailPanel()
     this.updateResourceText()
+  }
 
-    this.saveManager.saveGame(save)
+  private canDeliverItem(item: ShopItem): { success: boolean; reason?: string } {
+    if (item.type === 'treasure') {
+      const treasureTemplate = SHOP_TREASURES[item.templateId]
+      if (treasureTemplate) {
+        const alreadyOwned = this.player.treasures.find(t => t.id === treasureTemplate.id)
+        if (alreadyOwned) {
+          return { success: false, reason: '你已拥有该法宝，无法重复购买！' }
+        }
+      }
+    }
+    return { success: true }
   }
 
   private addItemToInventory(item: ShopItem, quantity: number): void {
-    const save = this.saveManager.loadGame()!
-
     if (item.type === 'herb') {
       const herbId = item.templateId.replace('shop_', '')
       const herb = getHerbById(herbId)
       if (herb) {
-        this.alchemyManager.addHerb(save.alchemy, herbId, quantity)
+        this.alchemyManager.addHerb(this.save.alchemy, herbId, quantity)
       }
     } else if (item.type === 'pill') {
       const pillId = item.templateId.replace('shop_', '')
       const pill = getPillById(pillId)
       if (pill) {
-        this.alchemyManager.addPill(save.alchemy, pillId, quantity)
+        this.alchemyManager.addPill(this.save.alchemy, pillId, quantity)
       }
     } else if (item.type === 'consumable') {
       if (item.templateId.includes('spiritstone')) {
         const spiritGain = item.effects?.find(e => e.type === 'spirit')?.value || 0
-        save.sect.resources.spirit += spiritGain * quantity
+        this.save.sect.resources.spirit += spiritGain * quantity
+      }
+    } else if (item.type === 'material') {
+      const materialId = item.templateId.replace('shop_material_', '')
+      this.equipmentManager.addMaterial(this.save.equipment, materialId, quantity)
+    } else if (item.type === 'treasure') {
+      const treasureTemplate = SHOP_TREASURES[item.templateId]
+      if (treasureTemplate) {
+        const newTreasure: Treasure = {
+          ...treasureTemplate,
+          level: 1,
+          maxLevel: 10
+        }
+        this.player.treasures.push(newTreasure)
       }
     }
   }
@@ -651,11 +711,12 @@ export class ShopScene extends Phaser.Scene {
   private updateResourceText(): void {
     this.resourceText.setText([
       `💰 金币: ${this.player.gold}`,
-      `🔮 灵石: ${this.saveManager.loadGame()?.sect.resources.spirit || 0}`
+      `🔮 灵石: ${this.save.sect.resources.spirit}`
     ].join('\n'))
   }
 
   private goBack(): void {
+    this.persistSave()
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('MenuScene')
