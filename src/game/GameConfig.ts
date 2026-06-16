@@ -3,6 +3,7 @@ import { OpeningScene } from '../scenes/OpeningScene'
 import { MenuScene } from '../scenes/MenuScene'
 import { BattleScene } from '../scenes/BattleScene'
 import { TreasureScene } from '../scenes/TreasureScene'
+import { SectScene } from '../scenes/SectScene'
 import { ResultScene } from '../scenes/ResultScene'
 import { SaveManager } from '../managers/SaveManager'
 
@@ -20,7 +21,7 @@ export function createGame(container: HTMLDivElement): Phaser.Game {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [OpeningScene, MenuScene, BattleScene, TreasureScene, ResultScene]
+    scene: [OpeningScene, MenuScene, BattleScene, TreasureScene, SectScene, ResultScene]
   }
 
   return new Phaser.Game(config)

@@ -20,6 +20,14 @@ export class ResultScene extends Phaser.Scene {
     this.levels = data.levels
     const save = this.saveManager.loadGame()!
     this.player = save.player
+
+    if (this.result.victory) {
+      this.saveManager.applyBattleResultToSect(save, {
+        victory: true,
+        goldGained: this.result.goldGained,
+        spiritGained: this.result.spiritGained
+      })
+    }
   }
 
   create(): void {
@@ -206,7 +214,7 @@ export class ResultScene extends Phaser.Scene {
     }).setOrigin(0.5)
 
     const advice = this.add.text(x, y + 100,
-      '建议：前往【法宝养成】提升实力',
+      '建议：前往【宗门经营】或【法宝养成】提升实力',
       {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '20px',

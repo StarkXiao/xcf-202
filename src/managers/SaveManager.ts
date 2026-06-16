@@ -1,5 +1,6 @@
 import type { GameSave, Player, Skill, Treasure } from '../types'
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
+import { SectManager } from './SectManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -33,12 +34,40 @@ export class SaveManager {
   }
 
   createNewSave(): GameSave {
+    const sectManager = SectManager.getInstance()
     return {
       player: this.createDefaultPlayer(),
+      sect: sectManager.createInitialSect(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
     }
+  }
+
+  applyBattleResultToSect(save: GameSave, result: { victory: boolean; goldGained: number; spiritGained: number }): void {
+    if (result.victory) {
+      const sectManager = SectManager.getInstance()
+      sectManager.addResources(save.sect, {
+        gold: result.goldGained,
+        spirit: result.spiritGained
+      })
+    }
+  }
+
+  settleOfflineIncome(save: GameSave): { resources: any; seconds: number; hasIncome: boolean } {
+    const sectManager = SectManager.getInstance()
+    sectManager.checkDailyReset(save.sect)
+    sectManager.updateQuestProgress(save.sect)
+    
+    const { resources, seconds } = sectManager.calculateOfflineProduction(save.sect)
+    
+    const hasIncome = Object.values(resources).some(v => v && v > 0)
+    if (hasIncome) {
+      sectManager.collectResources(save.sect)
+    }
+    
+    this.saveGame(save)
+    return { resources, seconds, hasIncome }
   }
 
   saveGame(save: GameSave): void {
@@ -68,6 +97,14 @@ export class SaveManager {
     for (const field of requiredFields) {
       if (save.player[field] === undefined) return null
     }
+
+    const sectManager = SectManager.getInstance()
+    if (!save.sect) {
+      save.sect = sectManager.createInitialSect()
+    } else {
+      save.sect = sectManager.validateSect(save.sect)
+    }
+
     return save
   }
 
