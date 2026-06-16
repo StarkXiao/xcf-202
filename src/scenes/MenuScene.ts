@@ -1,15 +1,19 @@
 import Phaser from 'phaser'
 import type { GameSave } from '../types'
 import { SaveManager } from '../managers/SaveManager'
+import { AchievementManager } from '../managers/AchievementManager'
 import { STAGES } from '../data/gameData'
 
 export class MenuScene extends Phaser.Scene {
   private save!: GameSave
   private saveManager: SaveManager
+  private achievementManager: AchievementManager
+  private notificationBadge!: Phaser.GameObjects.Text
 
   constructor() {
     super({ key: 'MenuScene' })
     this.saveManager = SaveManager.getInstance()
+    this.achievementManager = AchievementManager.getInstance()
   }
 
   init(): void {
@@ -154,16 +158,17 @@ export class MenuScene extends Phaser.Scene {
   private createMenuButtons(width: number, height: number): void {
     const buttonConfigs = [
       { label: '⚔ 开始闯关', y: height * 0.42, color: 0x4fc3f7, action: () => this.startBattle() },
-      { label: '🏪 坊市交易', y: height * 0.46 + 6, color: 0xffd54f, action: () => this.goToShop() },
-      { label: '🏰 秘境探索', y: height * 0.50 + 12, color: 0x9575cd, action: () => this.goToDungeon() },
-      { label: '✨ 仙缘奇遇', y: height * 0.54 + 18, color: 0xba68c8, action: () => this.goToEncounter() },
-      { label: '🧘 经脉修炼', y: height * 0.58 + 24, color: 0xe1bee7, action: () => this.goToMeridian() },
-      { label: '🐉 灵兽养成', y: height * 0.64 + 24, color: 0xff7043, action: () => this.goToSpiritBeast() },
-      { label: '🧪 洞府炼丹', y: height * 0.70 + 24, color: 0xba68c8, action: () => this.goToAlchemy() },
-      { label: '🏛️ 宗门经营', y: height * 0.76 + 24, color: 0xffd54f, action: () => this.goToSect() },
-      { label: '💎 法宝养成', y: height * 0.82 + 24, color: 0x81c784, action: () => this.goToTreasure() },
-      { label: '⚒️ 装备锻造', y: height * 0.88 + 24, color: 0xff7043, action: () => this.goToEquipment() },
-      { label: '📖 重新开始', y: height * 0.96, color: 0xef5350, action: () => this.confirmReset() }
+      { label: '� 成就图鉴', y: height * 0.46 + 6, color: 0xffd54f, action: () => this.goToAchievement() },
+      { label: '� 坊市交易', y: height * 0.50 + 12, color: 0xffd54f, action: () => this.goToShop() },
+      { label: '🏰 秘境探索', y: height * 0.54 + 18, color: 0x9575cd, action: () => this.goToDungeon() },
+      { label: '✨ 仙缘奇遇', y: height * 0.58 + 24, color: 0xba68c8, action: () => this.goToEncounter() },
+      { label: '🧘 经脉修炼', y: height * 0.64 + 24, color: 0xe1bee7, action: () => this.goToMeridian() },
+      { label: '🐉 灵兽养成', y: height * 0.70 + 24, color: 0xff7043, action: () => this.goToSpiritBeast() },
+      { label: '🧪 洞府炼丹', y: height * 0.76 + 24, color: 0xba68c8, action: () => this.goToAlchemy() },
+      { label: '🏛️ 宗门经营', y: height * 0.82 + 24, color: 0xffd54f, action: () => this.goToSect() },
+      { label: '💎 法宝养成', y: height * 0.88 + 24, color: 0x81c784, action: () => this.goToTreasure() },
+      { label: '⚒️ 装备锻造', y: height * 0.92 + 24, color: 0xff7043, action: () => this.goToEquipment() },
+      { label: '📖 重新开始', y: height * 0.98, color: 0xef5350, action: () => this.confirmReset() }
     ]
 
     buttonConfigs.forEach((config, index) => {
@@ -177,7 +182,42 @@ export class MenuScene extends Phaser.Scene {
         delay: 800 + index * 200,
         ease: 'Back.easeOut'
       })
+
+      if (config.label.includes('成就图鉴')) {
+        this.addAchievementBadge(btn)
+      }
     })
+  }
+
+  private addAchievementBadge(button: Phaser.GameObjects.Container): void {
+    const claimableCount = this.achievementManager.getClaimableAchievementsCount(this.save.achievement)
+    if (claimableCount > 0) {
+      this.notificationBadge = this.add.text(button.x + 120, button.y - 20, `${claimableCount}`, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '18px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        backgroundColor: '#ef5350',
+        padding: { left: 6, right: 6, top: 2, bottom: 2 }
+      }).setOrigin(0.5).setDepth(100)
+
+      this.tweens.add({
+        targets: this.notificationBadge,
+        scale: { from: 0, to: 1 },
+        duration: 300,
+        delay: 1500,
+        ease: 'Back.easeOut'
+      })
+
+      this.tweens.add({
+        targets: this.notificationBadge,
+        scale: { from: 1, to: 1.2 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      })
+    }
   }
 
   private createButton(x: number, y: number, label: string, color: number, onClick: () => void): Phaser.GameObjects.Container {
@@ -270,6 +310,13 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('EquipmentScene')
+    })
+  }
+
+  private goToAchievement(): void {
+    this.cameras.main.fadeOut(400)
+    this.time.delayedCall(400, () => {
+      this.scene.start('AchievementScene')
     })
   }
 

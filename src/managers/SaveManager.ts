@@ -7,6 +7,7 @@ import { EncounterManager } from './EncounterManager'
 import { EquipmentManager } from './EquipmentManager'
 import { MeridianManager } from './MeridianManager'
 import { ShopManager } from './ShopManager'
+import { AchievementManager } from './AchievementManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -49,7 +50,8 @@ export class SaveManager {
     const equipmentManager = EquipmentManager.getInstance()
     const meridianManager = MeridianManager.getInstance()
     const shopManager = ShopManager.getInstance()
-    return {
+    const achievementManager = AchievementManager.getInstance()
+    const save = {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
       alchemy: alchemyManager.createInitialAlchemyData(),
@@ -58,11 +60,14 @@ export class SaveManager {
       equipment: equipmentManager.createInitialEquipmentData(),
       meridian: meridianManager.createInitialMeridianData(),
       shop: shopManager.createInitialShopData(),
+      achievement: achievementManager.createInitialAchievementData(),
       dungeon: this.createInitialDungeonProgress(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
     }
+    achievementManager.initializePlayerTreasures(save)
+    return save
   }
 
   createInitialDungeonProgress(): import('../types').DungeonProgress {
@@ -178,6 +183,9 @@ export class SaveManager {
     save.shop = shopManager.validateShopData(save.shop)
 
     save.dungeon = this.validateDungeonProgress(save.dungeon)
+
+    const achievementManager = AchievementManager.getInstance()
+    save.achievement = achievementManager.validateAchievementData(save.achievement)
 
     return save
   }

@@ -504,6 +504,7 @@ export interface GameSave {
   dungeon: DungeonProgress
   meridian: MeridianData
   shop: ShopData
+  achievement: AchievementData
   currentStage: number
   highestStage: number
   lastPlayTime: number
@@ -765,5 +766,85 @@ export interface ShopRefreshResult {
   items: ShopItem[]
   rareItems: ShopItem[]
   message: string
+}
+
+export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary'
+export type AchievementCategory = 'battle' | 'collection' | 'story' | 'exploration' | 'development'
+export type AchievementStatus = 'locked' | 'unlocked' | 'claimed'
+
+export interface AchievementReward {
+  type: 'gold' | 'spirit' | 'exp' | 'attack' | 'defense' | 'maxHealth' | 'maxMana'
+  value: number
+}
+
+export interface Achievement {
+  id: string
+  name: string
+  description: string
+  icon: string
+  rarity: AchievementRarity
+  category: AchievementCategory
+  target: number
+  progress: number
+  status: AchievementStatus
+  rewards: AchievementReward[]
+  unlockedAt: number | null
+  claimedAt: number | null
+  requirementStage?: number
+}
+
+export interface MonsterEntry {
+  id: string
+  name: string
+  description: string
+  icon: string
+  color: number
+  stage: number
+  defeatCount: number
+  firstDefeatAt: number | null
+  isDiscovered: boolean
+}
+
+export interface TreasureEntry {
+  id: string
+  name: string
+  description: string
+  icon: string
+  color: number
+  rarity: AchievementRarity
+  isCollected: boolean
+  collectedAt: number | null
+  maxLevel: number
+}
+
+export interface StoryEntry {
+  id: string
+  name: string
+  description: string
+  icon: string
+  requiredStage: number
+  isCompleted: boolean
+  completedAt: number | null
+  isDiscovered: boolean
+}
+
+export interface AchievementData {
+  achievements: Achievement[]
+  monsters: MonsterEntry[]
+  treasures: TreasureEntry[]
+  stories: StoryEntry[]
+  totalMonstersDefeated: number
+  totalTreasuresCollected: number
+  totalStoriesCompleted: number
+  totalAchievementsUnlocked: number
+  totalRewardsClaimed: number
+  lastAchievementCheck: number
+}
+
+export interface AchievementProgressUpdate {
+  type: 'monster_defeat' | 'treasure_collect' | 'story_complete' | 'stage_clear' | 'gold_spent' | 'spirit_spent'
+  id?: string
+  value: number
+  stageId?: number
 }
 

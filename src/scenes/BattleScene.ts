@@ -7,10 +7,12 @@ import { AlchemyManager } from '../managers/AlchemyManager'
 import { SpiritBeastManager } from '../managers/SpiritBeastManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
 import { MeridianManager } from '../managers/MeridianManager'
+import { AchievementManager } from '../managers/AchievementManager'
 import { getBeastTemplate } from '../data/spiritBeastData'
 
 export class BattleScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
+  private achievementManager = AchievementManager.getInstance()
   private player!: Player
   private stage!: Stage
   private enemies: Enemy[] = []
@@ -29,6 +31,7 @@ export class BattleScene extends Phaser.Scene {
   private expGoldText!: Phaser.GameObjects.Text
   private turnText!: Phaser.GameObjects.Text
   private messageText!: Phaser.GameObjects.Text
+  private unlockedAchievementsNotification: Phaser.GameObjects.Container | null = null
   private spiritBeastManager = SpiritBeastManager.getInstance()
   private battleBeasts: (SpiritBeast | null)[] = []
   private beastSprites: (Phaser.GameObjects.Container | null)[] = []
@@ -777,7 +780,20 @@ export class BattleScene extends Phaser.Scene {
 
   private enemyDefeated(): void {
     const sprite = this.enemySprites[this.currentEnemyIndex]
-    this.showMessage(this.enemies[this.currentEnemyIndex].name + ' 已被击败！')
+    const defeatedEnemy = this.enemies[this.currentEnemyIndex]
+    this.showMessage(defeatedEnemy.name + ' 已被击败！')
+
+    const save = this.saveManager.loadGame()!
+    const { unlockedAchievements } = this.achievementManager.updateProgress(save, {
+      type: 'monster_defeat',
+      id: defeatedEnemy.id,
+      value: 1,
+      stageId: this.stage.id
+    })
+
+    if (unlockedAchievements.length > 0) {
+      this.showAchievementNotification(unlockedAchievements)
+    }
 
     this.tweens.add({
       targets: sprite,
@@ -886,6 +902,17 @@ export class BattleScene extends Phaser.Scene {
     this.cameras.main.flash(500, 255, 255, 200)
 
     const save = this.saveManager.loadGame()!
+
+    const { unlockedAchievements: stageAchievements } = this.achievementManager.updateProgress(save, {
+      type: 'stage_clear',
+      value: 1,
+      stageId: this.stage.id
+    })
+
+    this.achievementManager.checkStageStories(save, this.stage.id)
+
+    const allUnlocked = stageAchievements
+
     const herbDrops = this.alchemyManager.rollHerbDrops(this.stage.id)
     this.alchemyManager.applyHerbDrops(save.alchemy, herbDrops)
 
@@ -927,6 +954,10 @@ export class BattleScene extends Phaser.Scene {
     }
     save.currentStage = save.highestStage
     this.saveManager.saveGame(save)
+
+    if (allUnlocked.length > 0) {
+      this.showAchievementNotification(allUnlocked)
+    }
 
     this.time.delayedCall(1500, () => {
       this.cameras.main.fadeOut(500)
@@ -1071,5 +1102,88 @@ export class BattleScene extends Phaser.Scene {
       this.cameras.main.fadeOut(400)
       this.time.delayedCall(400, () => this.scene.start('MenuScene'))
     })
+  }
+
+  private showAchievementNotification(achievements: any[]): void {
+    const { width, height } = this.scale
+
+    let currentIndex = 0
+    const showNext = () => {
+      if (currentIndex >= achievements.length) {
+        return
+      }
+
+      const achievement = achievements[currentIndex]
+      const panelWidth = 320
+      const panelHeight = 100
+      const x = width / 2
+      const y = height * 0.15
+
+      const overlay = this.add.graphics()
+      overlay.fillStyle(0x000000, 0.01)
+      overlay.fillRect(0, 0, width, height)
+
+      const panel = this.add.graphics()
+      panel.fillStyle(0x1a1a2e, 0.98)
+      panel.lineStyle(3, 0xffd54f, 1)
+      this.roundedRect(panel, x - panelWidth / 2, y - panelHeight / 2, panelWidth, panelHeight, 12)
+
+      const iconBg = this.add.graphics()
+      iconBg.fillStyle(0xffd54f, 0.3)
+      iconBg.fillCircle(x - panelWidth / 2 + 45, y, 32)
+
+      const icon = this.add.text(x - panelWidth / 2 + 45, y, achievement.icon, {
+        fontSize: '36px'
+      }).setOrigin(0.5)
+
+      const titleText = this.add.text(x - panelWidth / 2 + 90, y - 20, '🎉 成就解锁！', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '16px',
+        color: '#ffd54f',
+        fontStyle: 'bold'
+      }).setOrigin(0, 0.5)
+
+      const nameText = this.add.text(x - panelWidth / 2 + 90, y + 5, achievement.name, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0, 0.5)
+
+      const descText = this.add.text(x - panelWidth / 2 + 90, y + 28, achievement.description, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '13px',
+        color: '#aaaaaa'
+      }).setOrigin(0, 0.5)
+
+      const allElements = [overlay, panel, iconBg, icon, titleText, nameText, descText]
+
+      this.tweens.add({
+        targets: allElements,
+        y: '-=100',
+        alpha: { from: 0, to: 1 },
+        scale: { from: 0.5, to: 1 },
+        duration: 400,
+        ease: 'Back.easeOut'
+      })
+
+      this.time.delayedCall(2500, () => {
+        this.tweens.add({
+          targets: allElements,
+          y: '-=100',
+          alpha: 0,
+          scale: 0.5,
+          duration: 400,
+          ease: 'Back.easeIn',
+          onComplete: () => {
+            allElements.forEach(el => el.destroy())
+            currentIndex++
+            showNext()
+          }
+        })
+      })
+    }
+
+    showNext()
   }
 }
