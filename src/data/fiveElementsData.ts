@@ -1,4 +1,4 @@
-import type { ElementType } from '../types'
+import type { ElementType, Treasure } from '../types'
 
 export const ELEMENT_ADVANTAGE_DAMAGE_MULTIPLIER = 1.5
 export const ELEMENT_DISADVANTAGE_DAMAGE_MULTIPLIER = 0.6
@@ -61,4 +61,46 @@ export function getElementConstraintText(attackElement: ElementType, defendEleme
     return `${ELEMENT_INFO[defendElement].icon}${ELEMENT_INFO[defendElement].name}克${ELEMENT_INFO[attackElement].icon}${ELEMENT_INFO[attackElement].name}！伤害×0.6`
   }
   return null
+}
+
+export interface TreasureElementBonusResult {
+  totalBonus: number
+  matchingTreasures: Treasure[]
+  perTreasureBonus: { treasure: Treasure; bonus: number }[]
+}
+
+export function calculateTreasureElementBonus(treasures: Treasure[], skillElement: ElementType | undefined): TreasureElementBonusResult {
+  if (!skillElement || skillElement === 'none') {
+    return { totalBonus: 0, matchingTreasures: [], perTreasureBonus: [] }
+  }
+
+  let totalBonus = 0
+  const matchingTreasures: Treasure[] = []
+  const perTreasureBonus: { treasure: Treasure; bonus: number }[] = []
+
+  treasures.forEach((t) => {
+    if (t.element && t.element === skillElement) {
+      const base = t.elementDamageBonus || 0
+      const perLevel = base * t.level
+      totalBonus += perLevel
+      matchingTreasures.push(t)
+      perTreasureBonus.push({ treasure: t, bonus: perLevel })
+    }
+  })
+
+  return { totalBonus, matchingTreasures, perTreasureBonus }
+}
+
+export function getTreasureElementLabel(treasure: Treasure): string {
+  if (!treasure.element || treasure.element === 'none') return ''
+  return getElementLabel(treasure.element)
+}
+
+export function getTreasureElementBonusText(treasure: Treasure): string {
+  if (!treasure.element || treasure.element === 'none') return ''
+  const info = ELEMENT_INFO[treasure.element]
+  const baseBonus = treasure.elementDamageBonus || 0
+  const current = baseBonus * treasure.level
+  const next = baseBonus * (treasure.level + 1)
+  return `${info.icon}${info.name}系伤害 +${Math.round(current * 100)}%${treasure.level < treasure.maxLevel ? ` → +${Math.round(next * 100)}%` : ''}`
 }

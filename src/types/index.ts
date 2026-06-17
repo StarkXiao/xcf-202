@@ -25,6 +25,8 @@ export interface Treasure {
   healthBonus: number
   upgradeCost: number
   color: number
+  element?: ElementType
+  elementDamageBonus?: number
 }
 
 export interface Player {

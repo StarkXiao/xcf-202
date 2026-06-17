@@ -583,6 +583,7 @@ export class DungeonScene extends Phaser.Scene {
     let msgParts = [skill.name + '！']
     if (critText) msgParts.push(critText)
     if (elementText) msgParts.push(elementText)
+    if (skillResult.treasureBonus > 0) msgParts.push('法宝+' + Math.round(skillResult.treasureBonus * 100) + '%')
     this.showBattleMessage(msgParts.join(''))
 
     this.tweens.add({

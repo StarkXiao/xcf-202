@@ -1,9 +1,10 @@
 import type { Player, Skill, ElementType } from '../types'
-import { getElementMultiplier } from '../data/fiveElementsData'
+import { getElementMultiplier, calculateTreasureElementBonus } from '../data/fiveElementsData'
 
 export interface SkillDamageResult {
   damage: number
   elementMultiplier: number
+  treasureBonus: number
   isAdvantage: boolean
   isDisadvantage: boolean
 }
@@ -17,21 +18,26 @@ export class SkillSystem {
   }
 
   static useSkill(player: Player, skill: Skill, targetElement?: ElementType): SkillDamageResult {
-    if (!this.canUseSkill(player, skill)) return { damage: 0, elementMultiplier: 1, isAdvantage: false, isDisadvantage: false }
+    if (!this.canUseSkill(player, skill)) return { damage: 0, elementMultiplier: 1, treasureBonus: 0, isAdvantage: false, isDisadvantage: false }
 
     player.mana -= skill.manaCost
     skill.currentCooldown = skill.cooldown
 
     const baseDamage = skill.damage
     const attackMultiplier = player.attack * 0.5
-    const rawDamage = Math.floor(baseDamage + attackMultiplier)
+    const rawDamage = baseDamage + attackMultiplier
 
     const { multiplier, isAdvantage, isDisadvantage } = getElementMultiplier(skill.element, targetElement)
-    const finalDamage = Math.floor(rawDamage * multiplier)
+    const elementAdjusted = rawDamage * multiplier
+
+    const treasureResult = calculateTreasureElementBonus(player.treasures, skill.element)
+    const treasureBonus = treasureResult.totalBonus
+    const finalDamage = Math.floor(elementAdjusted * (1 + treasureBonus))
 
     return {
       damage: finalDamage,
       elementMultiplier: multiplier,
+      treasureBonus,
       isAdvantage,
       isDisadvantage
     }

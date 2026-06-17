@@ -10,7 +10,7 @@ import { MeridianManager } from '../managers/MeridianManager'
 import { AchievementManager } from '../managers/AchievementManager'
 import { ChapterManager } from '../managers/ChapterManager'
 import { getBeastTemplate } from '../data/spiritBeastData'
-import { getElementMultiplier, getElementConstraintText, getElementLabel, ELEMENT_INFO } from '../data/fiveElementsData'
+import { getElementMultiplier, getElementConstraintText, getElementLabel, ELEMENT_INFO, calculateTreasureElementBonus } from '../data/fiveElementsData'
 
 export class BattleScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -221,6 +221,25 @@ export class BattleScene extends Phaser.Scene {
       fontSize: '12px',
       color: '#ffffff'
     }).setOrigin(0.5)
+
+    const elementBonuses = new Map<string, number>()
+    this.player.treasures.forEach((t) => {
+      if (t.element && t.element !== 'none' && t.elementDamageBonus) {
+        const cur = elementBonuses.get(t.element) || 0
+        elementBonuses.set(t.element, cur + t.elementDamageBonus * t.level)
+      }
+    })
+    if (elementBonuses.size > 0) {
+      const bonusParts = Array.from(elementBonuses.entries()).map(([el, bonus]) => {
+        const info = ELEMENT_INFO[el as ElementType]
+        return `${info.icon}${info.name}+${Math.round(bonus * 100)}%`
+      })
+      this.add.text(x, barY + 50, '法宝加成：' + bonusParts.join('  '), {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '12px',
+        color: '#ffd54f'
+      }).setOrigin(0.5)
+    }
 
     this.tweens.add({
       targets: this.playerSprite,
@@ -440,10 +459,12 @@ export class BattleScene extends Phaser.Scene {
 
     const enemy = this.enemies[this.currentEnemyIndex]
     const elementResult = getElementMultiplier(skill.element, enemy.element)
+    const treasureBonusResult = calculateTreasureElementBonus(this.player.treasures, skill.element)
 
     let msgParts = [`${beast.name} 使用了 ${skill.name}！`]
     if (elementResult.isAdvantage) msgParts.push('⚡克制！')
     if (elementResult.isDisadvantage) msgParts.push('🔻被克！')
+    if (treasureBonusResult.totalBonus > 0) msgParts.push('法宝+' + Math.round(treasureBonusResult.totalBonus * 100) + '%')
     this.showMessage(msgParts.join(''))
 
     const beastSprite = this.beastSprites[beastIndex]
@@ -465,10 +486,11 @@ export class BattleScene extends Phaser.Scene {
           const attackBonus = this.activeBeastBuffs[beastIndex]?.attack || 0
           const totalAttack = beast.attack + attackBonus
           const baseDamage = skill.damage + totalAttack * 0.5
-          const elementDamage = Math.floor(baseDamage * elementResult.multiplier)
+          const elementDamage = baseDamage * elementResult.multiplier
+          const treasureAdjusted = Math.floor(elementDamage * (1 + treasureBonusResult.totalBonus))
           const defenseReduction = this.activeEnemyDebuffs[this.currentEnemyIndex]?.defenseDown || 0
           const effectiveDefense = Math.max(0, enemy.defense - defenseReduction)
-          const actualDamage = Math.max(1, Math.floor(elementDamage - effectiveDefense * 0.3))
+          const actualDamage = Math.max(1, Math.floor(treasureAdjusted - effectiveDefense * 0.3))
 
           if (elementResult.isAdvantage) {
             this.elementStats.advantageHits++
@@ -832,6 +854,7 @@ export class BattleScene extends Phaser.Scene {
     let msgParts = [skill.name + '！']
     if (critText) msgParts.push(critText)
     if (elementConstraintText) msgParts.push(elementConstraintText)
+    if (skillResult.treasureBonus > 0) msgParts.push('法宝+' + Math.round(skillResult.treasureBonus * 100) + '%')
     msgParts.push('造成 ' + damage + ' 点伤害')
     this.showMessage(msgParts.join(''))
 

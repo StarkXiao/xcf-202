@@ -66,7 +66,9 @@ export const INITIAL_TREASURES: Treasure[] = [
     defenseBonus: 0,
     healthBonus: 0,
     upgradeCost: 100,
-    color: 0x78909c
+    color: 0x78909c,
+    element: 'metal',
+    elementDamageBonus: 0.05
   },
   {
     id: 'jade_pendant',
@@ -78,7 +80,9 @@ export const INITIAL_TREASURES: Treasure[] = [
     defenseBonus: 8,
     healthBonus: 50,
     upgradeCost: 150,
-    color: 0x81c784
+    color: 0x81c784,
+    element: 'wood',
+    elementDamageBonus: 0.05
   },
   {
     id: 'pearl',
@@ -90,7 +94,9 @@ export const INITIAL_TREASURES: Treasure[] = [
     defenseBonus: 5,
     healthBonus: 30,
     upgradeCost: 200,
-    color: 0x4dd0e1
+    color: 0x4dd0e1,
+    element: 'water',
+    elementDamageBonus: 0.05
   }
 ]
 

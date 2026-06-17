@@ -5,6 +5,7 @@ import { AlchemyManager } from '../managers/AlchemyManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
 import { MeridianManager } from '../managers/MeridianManager'
 import { AchievementManager } from '../managers/AchievementManager'
+import { ELEMENT_INFO, getTreasureElementBonusText, getTreasureElementLabel, calculateTreasureElementBonus } from '../data/fiveElementsData'
 
 export class TreasureScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -15,6 +16,7 @@ export class TreasureScene extends Phaser.Scene {
   private treasureCards: Phaser.GameObjects.Container[] = []
   private detailPanel!: Phaser.GameObjects.Container
   private playerStatsText!: Phaser.GameObjects.Text
+  private elementBonusText!: Phaser.GameObjects.Text
   private goldText!: Phaser.GameObjects.Text
   private spiritText!: Phaser.GameObjects.Text
 
@@ -46,7 +48,7 @@ export class TreasureScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0.5)
 
-    this.playerStatsText = this.add.text(width / 2, 100, '', {
+    this.playerStatsText = this.add.text(width / 2, 95, '', {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '18px',
       color: '#81c784',
@@ -64,6 +66,13 @@ export class TreasureScene extends Phaser.Scene {
       fontSize: '22px',
       color: '#4fc3f7'
     })
+
+    this.elementBonusText = this.add.text(width / 2, 120, '', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '15px',
+      color: '#ffd54f',
+      align: 'center'
+    }).setOrigin(0.5)
 
     this.updateResourceTexts()
     this.createTreasureCards(width, height)
@@ -139,6 +148,14 @@ export class TreasureScene extends Phaser.Scene {
     iconBg.lineStyle(2, treasure.color, 0.8)
     iconBg.strokeCircle(0, -height / 2 + 60, 40)
 
+    let elRing: Phaser.GameObjects.Graphics | null = null
+    if (treasure.element && treasure.element !== 'none') {
+      elRing = this.add.graphics()
+      const elColor = ELEMENT_INFO[treasure.element].color
+      elRing.lineStyle(3, elColor, 0.9)
+      elRing.strokeCircle(0, -height / 2 + 60, 46)
+    }
+
     const letter = treasure.name.charAt(0)
     const icon = this.add.text(0, -height / 2 + 60, letter, {
       fontFamily: '"Microsoft YaHei", serif',
@@ -169,7 +186,23 @@ export class TreasureScene extends Phaser.Scene {
         color: '#b0bec5'
       }).setOrigin(0.5)
 
-    container.add([bg, iconBg, icon, name, levelText, bonusText])
+    let elementText: Phaser.GameObjects.Text | null = null
+    if (treasure.element && treasure.element !== 'none') {
+      const elInfo = ELEMENT_INFO[treasure.element]
+      elementText = this.add.text(0, -height / 2 + 185, getTreasureElementLabel(treasure) +
+        '系伤害 +' + Math.round((treasure.elementDamageBonus || 0) * treasure.level * 100) + '%',
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '12px',
+          color: '#' + elInfo.color.toString(16).padStart(6, '0')
+        }).setOrigin(0.5)
+    }
+
+    const allChildren: Phaser.GameObjects.GameObject[] = [bg, iconBg]
+    if (elRing) allChildren.push(elRing)
+    allChildren.push(icon, name, levelText, bonusText)
+    if (elementText) allChildren.push(elementText)
+    container.add(allChildren)
     container.setSize(width, height)
     container.setInteractive({ useHandCursor: true })
 
@@ -195,10 +228,10 @@ export class TreasureScene extends Phaser.Scene {
   }
 
   private createDetailPanel(width: number, height: number): void {
-    this.detailPanel = this.add.container(width / 2, height * 0.78)
+    this.detailPanel = this.add.container(width / 2, height * 0.82)
 
     const panelWidth = 500
-    const panelHeight = 160
+    const panelHeight = 200
 
     const bg = this.add.graphics()
     bg.fillStyle(0x000000, 0.85)
@@ -225,7 +258,7 @@ export class TreasureScene extends Phaser.Scene {
     const t = this.selectedTreasure
     const { width } = this.scale
     const panelWidth = 500
-    const panelHeight = 160
+    const panelHeight = 200
     const isMax = t.level >= t.maxLevel
 
     this.detailPanel.removeAll(true)
@@ -237,25 +270,33 @@ export class TreasureScene extends Phaser.Scene {
 
     const iconBg = this.add.graphics()
     iconBg.fillStyle(t.color, 0.25)
-    iconBg.fillCircle(-panelWidth / 2 + 65, 0, 45)
+    iconBg.fillCircle(-panelWidth / 2 + 65, -20, 45)
     iconBg.lineStyle(3, t.color, 1)
-    iconBg.strokeCircle(-panelWidth / 2 + 65, 0, 45)
+    iconBg.strokeCircle(-panelWidth / 2 + 65, -20, 45)
 
-    const icon = this.add.text(-panelWidth / 2 + 65, 0, t.name.charAt(0), {
+    let elRingPanel: Phaser.GameObjects.Graphics | null = null
+    if (t.element && t.element !== 'none') {
+      elRingPanel = this.add.graphics()
+      const elColor = ELEMENT_INFO[t.element].color
+      elRingPanel.lineStyle(3, elColor, 0.9)
+      elRingPanel.strokeCircle(-panelWidth / 2 + 65, -20, 52)
+    }
+
+    const icon = this.add.text(-panelWidth / 2 + 65, -20, t.name.charAt(0), {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '40px',
       color: '#' + t.color.toString(16).padStart(6, '0'),
       fontStyle: 'bold'
     }).setOrigin(0.5)
 
-    const name = this.add.text(-panelWidth / 2 + 130, -50, t.name + '  Lv.' + t.level + (isMax ? ' (MAX)' : ''), {
+    const name = this.add.text(-panelWidth / 2 + 130, -70, t.name + '  Lv.' + t.level + (isMax ? ' (MAX)' : ''), {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '24px',
       color: '#ffffff',
       fontStyle: 'bold'
     })
 
-    const desc = this.add.text(-panelWidth / 2 + 130, -18, t.description, {
+    const desc = this.add.text(-panelWidth / 2 + 130, -38, t.description, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '15px',
       color: '#b0bec5',
@@ -271,7 +312,7 @@ export class TreasureScene extends Phaser.Scene {
     const nextDef = t.defenseBonus * (t.level + 1)
     const nextHp = t.healthBonus * (t.level + 1)
 
-    const stats = this.add.text(-panelWidth / 2 + 130, 25,
+    const stats = this.add.text(-panelWidth / 2 + 130, 0,
       `攻击+${curAtk}${isMax ? '' : ` → +${nextAtk}`}  防御+${curDef}${isMax ? '' : ` → +${nextDef}`}  生命+${curHp}${isMax ? '' : ` → +${nextHp}`}`,
       {
         fontFamily: '"Microsoft YaHei", serif',
@@ -280,11 +321,40 @@ export class TreasureScene extends Phaser.Scene {
       }
     )
 
+    const elementStatText: Phaser.GameObjects.Text[] = []
+    if (t.element && t.element !== 'none') {
+      const elInfo = ELEMENT_INFO[t.element]
+      const elBonusText = getTreasureElementBonusText(t)
+      const elTag = this.add.text(-panelWidth / 2 + 130, 22,
+        `五行属性：${elInfo.icon}${elInfo.name}   ` + elBonusText,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '14px',
+          color: '#' + elInfo.color.toString(16).padStart(6, '0')
+        }
+      )
+      elementStatText.push(elTag)
+
+      const constrained = ['metal', 'wood', 'earth', 'water', 'fire']
+      const idx = ['metal', 'wood', 'earth', 'water', 'fire'].indexOf(t.element)
+      const nextEl = constrained[(idx + 1) % 5]
+      const prevEl = constrained[(idx - 1 + 5) % 5]
+      const elDesc = this.add.text(-panelWidth / 2 + 130, 44,
+        `克制${ELEMENT_INFO[nextEl as keyof typeof ELEMENT_INFO].icon}${ELEMENT_INFO[nextEl as keyof typeof ELEMENT_INFO].name}系   被${ELEMENT_INFO[prevEl as keyof typeof ELEMENT_INFO].icon}${ELEMENT_INFO[prevEl as keyof typeof ELEMENT_INFO].name}系克制`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '12px',
+          color: '#b0bec5'
+        }
+      )
+      elementStatText.push(elDesc)
+    }
+
     if (!isMax) {
-      const upgradeBtn = this.createUpgradeButton(panelWidth / 2 - 85, 35, t)
+      const upgradeBtn = this.createUpgradeButton(panelWidth / 2 - 85, 55, t)
       this.detailPanel.add(upgradeBtn)
     } else {
-      const maxText = this.add.text(panelWidth / 2 - 85, 35, '已满级 ⭐', {
+      const maxText = this.add.text(panelWidth / 2 - 85, 55, '已满级 ⭐', {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '20px',
         color: '#ffd54f',
@@ -293,7 +363,11 @@ export class TreasureScene extends Phaser.Scene {
       this.detailPanel.add(maxText)
     }
 
-    this.detailPanel.add([bg, iconBg, icon, name, desc, stats])
+    const panelChildren: Phaser.GameObjects.GameObject[] = [bg, iconBg]
+    if (elRingPanel) panelChildren.push(elRingPanel)
+    panelChildren.push(icon, name, desc, stats)
+    elementStatText.forEach((et) => panelChildren.push(et))
+    this.detailPanel.add(panelChildren)
   }
 
   private createUpgradeButton(x: number, y: number, treasure: Treasure): Phaser.GameObjects.Container {
@@ -370,6 +444,22 @@ export class TreasureScene extends Phaser.Scene {
     this.playerStatsText.setText(
       `⚔ 攻击: ${this.player.attack}  |  🛡 防御: ${this.player.defense}  |  ❤ 生命: ${this.player.maxHealth}  |  💧 灵力: ${this.player.maxMana}`
     )
+    const bonusByElement = new Map<string, number>()
+    this.player.treasures.forEach((t) => {
+      if (t.element && t.element !== 'none' && t.elementDamageBonus) {
+        const cur = bonusByElement.get(t.element) || 0
+        bonusByElement.set(t.element, cur + t.elementDamageBonus * t.level)
+      }
+    })
+    if (bonusByElement.size > 0) {
+      const parts = Array.from(bonusByElement.entries()).map(([el, bonus]) => {
+        const info = ELEMENT_INFO[el as keyof typeof ELEMENT_INFO]
+        return `${info.icon}${info.name}系 +${Math.round(bonus * 100)}%`
+      })
+      this.elementBonusText.setText('☯ 五行法宝加成：' + parts.join('   '))
+    } else {
+      this.elementBonusText.setText('')
+    }
   }
 
   private roundedRect(graphics: Phaser.GameObjects.Graphics, x: number, y: number, width: number, height: number, radius: number): void {
