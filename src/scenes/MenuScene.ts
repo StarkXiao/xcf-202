@@ -22,6 +22,7 @@ export class MenuScene extends Phaser.Scene {
     if (!existingSave) {
       this.saveManager.saveGame(this.save)
     }
+    this.saveManager.recalcPlayerStatsFromSave(this.save)
   }
 
   create(): void {
@@ -157,17 +158,18 @@ export class MenuScene extends Phaser.Scene {
 
   private createMenuButtons(width: number, height: number): void {
     const buttonConfigs = [
-      { label: '⚔ 开始闯关', y: height * 0.42, color: 0x4fc3f7, action: () => this.startBattle() },
-      { label: '� 成就图鉴', y: height * 0.46 + 6, color: 0xffd54f, action: () => this.goToAchievement() },
-      { label: '� 坊市交易', y: height * 0.50 + 12, color: 0xffd54f, action: () => this.goToShop() },
-      { label: '🏰 秘境探索', y: height * 0.54 + 18, color: 0x9575cd, action: () => this.goToDungeon() },
-      { label: '✨ 仙缘奇遇', y: height * 0.58 + 24, color: 0xba68c8, action: () => this.goToEncounter() },
-      { label: '🧘 经脉修炼', y: height * 0.64 + 24, color: 0xe1bee7, action: () => this.goToMeridian() },
-      { label: '🐉 灵兽养成', y: height * 0.70 + 24, color: 0xff7043, action: () => this.goToSpiritBeast() },
-      { label: '🧪 洞府炼丹', y: height * 0.76 + 24, color: 0xba68c8, action: () => this.goToAlchemy() },
-      { label: '🏛️ 宗门经营', y: height * 0.82 + 24, color: 0xffd54f, action: () => this.goToSect() },
-      { label: '💎 法宝养成', y: height * 0.88 + 24, color: 0x81c784, action: () => this.goToTreasure() },
-      { label: '⚒️ 装备锻造', y: height * 0.92 + 24, color: 0xff7043, action: () => this.goToEquipment() },
+      { label: '📜 主线章节', y: height * 0.42, color: 0xffd54f, action: () => this.goToChapterMap() },
+      { label: '⚔ 开始闯关', y: height * 0.46 + 6, color: 0x4fc3f7, action: () => this.startBattle() },
+      { label: '� 成就图鉴', y: height * 0.50 + 12, color: 0xffd54f, action: () => this.goToAchievement() },
+      { label: '� 坊市交易', y: height * 0.54 + 18, color: 0xffd54f, action: () => this.goToShop() },
+      { label: '🏰 秘境探索', y: height * 0.58 + 24, color: 0x9575cd, action: () => this.goToDungeon() },
+      { label: '✨ 仙缘奇遇', y: height * 0.64 + 24, color: 0xba68c8, action: () => this.goToEncounter() },
+      { label: '🧘 经脉修炼', y: height * 0.70 + 24, color: 0xe1bee7, action: () => this.goToMeridian() },
+      { label: '🐉 灵兽养成', y: height * 0.76 + 24, color: 0xff7043, action: () => this.goToSpiritBeast() },
+      { label: '🧪 洞府炼丹', y: height * 0.82 + 24, color: 0xba68c8, action: () => this.goToAlchemy() },
+      { label: '🏛️ 宗门经营', y: height * 0.86 + 24, color: 0xffd54f, action: () => this.goToSect() },
+      { label: '💎 法宝养成', y: height * 0.90 + 24, color: 0x81c784, action: () => this.goToTreasure() },
+      { label: '⚒️ 装备锻造', y: height * 0.94 + 24, color: 0xff7043, action: () => this.goToEquipment() },
       { label: '📖 重新开始', y: height * 0.98, color: 0xef5350, action: () => this.confirmReset() }
     ]
 
@@ -359,6 +361,13 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('ShopScene')
+    })
+  }
+
+  private goToChapterMap(): void {
+    this.cameras.main.fadeOut(400)
+    this.time.delayedCall(400, () => {
+      this.scene.start('ChapterMapScene')
     })
   }
 

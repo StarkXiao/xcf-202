@@ -1,3 +1,5 @@
+export type ElementType = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'none'
+
 export interface Skill {
   id: string
   name: string
@@ -9,6 +11,7 @@ export interface Skill {
   unlockLevel: number
   color: number
   icon: string
+  element?: ElementType
 }
 
 export interface Treasure {
@@ -54,6 +57,7 @@ export interface Enemy {
   gold: number
   color: number
   size: number
+  element?: ElementType
 }
 
 export interface Stage {
@@ -78,6 +82,11 @@ export interface BattleResult {
   spiritGained: number
   playerHealth: number
   herbDrops?: { herbId: string; amount: number; herbName?: string; herbIcon?: string }[]
+  elementStats?: {
+    advantageHits: number
+    disadvantageHits: number
+    totalElementBonusDamage: number
+  }
 }
 
 export type ResourceType = 'gold' | 'spirit' | 'stone' | 'wood' | 'herb'
@@ -295,6 +304,7 @@ export interface SpiritBeastSkill {
   unlockStage: number
   color: number
   icon: string
+  element?: ElementType
 }
 
 export interface SpiritBeastTemplate {
@@ -505,6 +515,7 @@ export interface GameSave {
   meridian: MeridianData
   shop: ShopData
   achievement: AchievementData
+  chapter: ChapterProgress
   currentStage: number
   highestStage: number
   lastPlayTime: number
@@ -697,7 +708,87 @@ export interface BreakthroughResult {
   costSpent: number
 }
 
-export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon' | 'meridian' | 'shop'
+export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon' | 'meridian' | 'shop' | 'chapterMap' | 'story' | 'chapterReview'
+
+export type ChapterStatus = 'locked' | 'unlocked' | 'in_progress' | 'completed'
+
+export interface StoryDialogue {
+  speaker: string
+  text: string
+  color: number
+  avatar?: string
+}
+
+export interface ChapterReward {
+  type: 'gold' | 'spirit' | 'exp' | 'attack' | 'defense' | 'maxHealth' | 'maxMana' | 'skill' | 'treasure'
+  value: number
+  itemId?: string
+  itemName?: string
+}
+
+export interface ChapterLevel {
+  id: string
+  name: string
+  description: string
+  type: 'battle' | 'story' | 'boss'
+  stageId?: number
+  storyDialogues?: StoryDialogue[]
+  position: { x: number; y: number }
+  requiredLevel: number
+  rewards: ChapterReward[]
+  isUnlocked: boolean
+  isCompleted: boolean
+}
+
+export interface Chapter {
+  id: string
+  name: string
+  description: string
+  chapterNumber: number
+  icon: string
+  color: number
+  backgroundColor: number
+  status: ChapterStatus
+  unlockRequirement: {
+    type: 'stage' | 'level' | 'chapter'
+    value: number
+  }
+  levels: ChapterLevel[]
+  completionRewards: ChapterReward[]
+  openingStory: StoryDialogue[]
+  closingStory: StoryDialogue[]
+  mapImage?: string
+}
+
+export interface ChapterProgress {
+  currentChapterId: string | null
+  highestChapterId: string | null
+  completedChapterIds: string[]
+  completedLevelIds: string[]
+  claimedRewards: string[]
+  chapterStates: Record<string, {
+    status: ChapterStatus
+    currentLevelIndex: number
+    completedLevelIds: string[]
+    collectedRewards?: ChapterReward[]
+  }>
+}
+
+export interface ChapterReviewData {
+  chapterId: string
+  chapterName: string
+  completedAt: number
+  totalTime: number
+  levelsCompleted: number
+  totalLevels: number
+  rewards: ChapterReward[]
+  battleStats: {
+    totalDamage: number
+    totalHealing: number
+    enemiesDefeated: number
+    deaths: number
+  }
+}
 
 export type ShopRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
 export type ShopItemType = 'pill' | 'herb' | 'material' | 'treasure' | 'consumable'
@@ -828,6 +919,13 @@ export interface StoryEntry {
   isDiscovered: boolean
 }
 
+export interface AchievementBonus {
+  attack: number
+  defense: number
+  maxHealth: number
+  maxMana: number
+}
+
 export interface AchievementData {
   achievements: Achievement[]
   monsters: MonsterEntry[]
@@ -838,6 +936,7 @@ export interface AchievementData {
   totalStoriesCompleted: number
   totalAchievementsUnlocked: number
   totalRewardsClaimed: number
+  permanentBonus: AchievementBonus
   lastAchievementCheck: number
 }
 

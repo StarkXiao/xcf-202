@@ -1,4 +1,4 @@
-import type { Skill, Treasure, Stage, Enemy } from '../types'
+import type { Skill, Treasure, Stage, Enemy, ElementType } from '../types'
 
 export const INITIAL_SKILLS: Skill[] = [
   {
@@ -11,7 +11,8 @@ export const INITIAL_SKILLS: Skill[] = [
     manaCost: 0,
     unlockLevel: 1,
     color: 0x4fc3f7,
-    icon: '⚔'
+    icon: '⚔',
+    element: 'metal'
   },
   {
     id: 'thunder_sword',
@@ -23,7 +24,8 @@ export const INITIAL_SKILLS: Skill[] = [
     manaCost: 20,
     unlockLevel: 2,
     color: 0xffeb3b,
-    icon: '⚡'
+    icon: '⚡',
+    element: 'metal'
   },
   {
     id: 'flame_slash',
@@ -35,7 +37,8 @@ export const INITIAL_SKILLS: Skill[] = [
     manaCost: 35,
     unlockLevel: 4,
     color: 0xff5722,
-    icon: '🔥'
+    icon: '🔥',
+    element: 'fire'
   },
   {
     id: 'frost_blade',
@@ -47,7 +50,8 @@ export const INITIAL_SKILLS: Skill[] = [
     manaCost: 50,
     unlockLevel: 7,
     color: 0x00bcd4,
-    icon: '❄'
+    icon: '❄',
+    element: 'water'
   }
 ]
 
@@ -90,8 +94,8 @@ export const INITIAL_TREASURES: Treasure[] = [
   }
 ]
 
-const createEnemy = (id: string, name: string, health: number, attack: number, defense: number, exp: number, gold: number, color: number, size: number): Enemy => ({
-  id, name, health, maxHealth: health, attack, defense, exp, gold, color, size
+const createEnemy = (id: string, name: string, health: number, attack: number, defense: number, exp: number, gold: number, color: number, size: number, element?: ElementType): Enemy => ({
+  id, name, health, maxHealth: health, attack, defense, exp, gold, color, size, element
 })
 
 export const STAGES: Stage[] = [
@@ -102,8 +106,8 @@ export const STAGES: Stage[] = [
     background: 0x1a237e,
     requiredLevel: 1,
     enemies: [
-      createEnemy('wolf', '幽狼', 100, 15, 5, 20, 30, 0x9ccc65, 36),
-      createEnemy('snake', '青蛇', 80, 20, 3, 15, 25, 0x66bb6a, 32)
+      createEnemy('wolf', '幽狼', 100, 15, 5, 20, 30, 0x9ccc65, 36, 'earth'),
+      createEnemy('snake', '青蛇', 80, 20, 3, 15, 25, 0x66bb6a, 32, 'wood')
     ],
     rewards: { gold: 50, exp: 40, spirit: 5 }
   },
@@ -114,8 +118,8 @@ export const STAGES: Stage[] = [
     background: 0x4a148c,
     requiredLevel: 2,
     enemies: [
-      createEnemy('demon', '血魔', 200, 30, 10, 40, 60, 0xef5350, 44),
-      createEnemy('bat', '暗影蝠', 120, 35, 5, 30, 45, 0xab47bc, 38)
+      createEnemy('demon', '血魔', 200, 30, 10, 40, 60, 0xef5350, 44, 'fire'),
+      createEnemy('bat', '暗影蝠', 120, 35, 5, 30, 45, 0xab47bc, 38, 'water')
     ],
     rewards: { gold: 100, exp: 80, spirit: 10 }
   },
@@ -126,8 +130,8 @@ export const STAGES: Stage[] = [
     background: 0x0d47a1,
     requiredLevel: 4,
     enemies: [
-      createEnemy('ghost', '怨灵', 350, 45, 15, 70, 100, 0x7e57c2, 48),
-      createEnemy('skeleton', '骷髅战将', 400, 50, 20, 80, 120, 0xe0e0e0, 52)
+      createEnemy('ghost', '怨灵', 350, 45, 15, 70, 100, 0x7e57c2, 48, 'water'),
+      createEnemy('skeleton', '骷髅战将', 400, 50, 20, 80, 120, 0xe0e0e0, 52, 'earth')
     ],
     rewards: { gold: 200, exp: 150, spirit: 20 }
   },
@@ -138,8 +142,8 @@ export const STAGES: Stage[] = [
     background: 0xbf360c,
     requiredLevel: 7,
     enemies: [
-      createEnemy('fire_demon', '炎魔', 600, 70, 25, 120, 180, 0xff7043, 56),
-      createEnemy('lava_beast', '熔岩巨兽', 800, 60, 35, 150, 220, 0xb71c1c, 60)
+      createEnemy('fire_demon', '炎魔', 600, 70, 25, 120, 180, 0xff7043, 56, 'fire'),
+      createEnemy('lava_beast', '熔岩巨兽', 800, 60, 35, 150, 220, 0xb71c1c, 60, 'earth')
     ],
     rewards: { gold: 350, exp: 280, spirit: 35 }
   },
@@ -150,8 +154,8 @@ export const STAGES: Stage[] = [
     background: 0x1a0033,
     requiredLevel: 10,
     enemies: [
-      createEnemy('demon_lord', '天魔使者', 1200, 100, 50, 300, 500, 0x880e4f, 68),
-      createEnemy('dark_dragon', '魔龙', 1500, 120, 60, 400, 700, 0x4a148c, 72)
+      createEnemy('demon_lord', '天魔使者', 1200, 100, 50, 300, 500, 0x880e4f, 68, 'metal'),
+      createEnemy('dark_dragon', '魔龙', 1500, 120, 60, 400, 700, 0x4a148c, 72, 'fire')
     ],
     rewards: { gold: 800, exp: 600, spirit: 80 }
   }

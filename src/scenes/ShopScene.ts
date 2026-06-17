@@ -5,6 +5,7 @@ import { ShopManager } from '../managers/ShopManager'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
 import { MeridianManager } from '../managers/MeridianManager'
+import { AchievementManager } from '../managers/AchievementManager'
 import { RARITY_COLORS, RARITY_NAMES, SHOP_CONFIG } from '../data/shopData'
 import { getHerbById, getPillById } from '../data/alchemyData'
 
@@ -36,6 +37,7 @@ export class ShopScene extends Phaser.Scene {
   private shopManager = ShopManager.getInstance()
   private alchemyManager = AlchemyManager.getInstance()
   private equipmentManager = EquipmentManager.getInstance()
+  private achievementManager = AchievementManager.getInstance()
   private save!: GameSave
   private player!: Player
   private shop!: ShopData
@@ -61,7 +63,8 @@ export class ShopScene extends Phaser.Scene {
     const permBonus = this.alchemyManager.getPermanentBonus(this.save.alchemy)
     const equipBonus = this.equipmentManager.calculateEquipmentBonus(this.save.equipment)
     const meridBonus = MeridianManager.getInstance().calculateMeridianBonus(this.save.meridian)
-    this.saveManager.recalcPlayerStats(this.player, buff, permBonus, equipBonus, meridBonus)
+    const achvBonus = this.achievementManager.getAchievementBonus(this.save.achievement)
+    this.saveManager.recalcPlayerStats(this.player, buff, permBonus, equipBonus, meridBonus, achvBonus)
 
     if (this.shop.items.length === 0) {
       this.shopManager.refreshShop(this.shop, this.save.currentStage, this.player.gold)
@@ -692,6 +695,21 @@ export class ShopScene extends Phaser.Scene {
           maxLevel: 10
         }
         this.player.treasures.push(newTreasure)
+
+        const { unlockedAchievements } = this.achievementManager.collectTreasure(this.save, treasureTemplate.id, {
+          name: treasureTemplate.name,
+          description: treasureTemplate.description,
+          icon: '💎',
+          color: treasureTemplate.color,
+          rarity: 'rare',
+          maxLevel: 10
+        })
+
+        if (unlockedAchievements.length > 0) {
+          this.showMessage(`🎉 解锁成就：${unlockedAchievements[0].name}`)
+        }
+
+        this.saveManager.recalcPlayerStatsFromSave(this.save)
       }
     }
   }

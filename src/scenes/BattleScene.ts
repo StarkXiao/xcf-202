@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { Player, Enemy, Stage, Skill, BattleResult, SpiritBeast, SpiritBeastSkill } from '../types'
+import type { Player, Enemy, Stage, Skill, BattleResult, SpiritBeast, SpiritBeastSkill, ChapterReward, ElementType } from '../types'
 import { STAGES } from '../data/gameData'
 import { SaveManager } from '../managers/SaveManager'
 import { SkillSystem } from '../managers/SkillSystem'
@@ -8,15 +8,21 @@ import { SpiritBeastManager } from '../managers/SpiritBeastManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
 import { MeridianManager } from '../managers/MeridianManager'
 import { AchievementManager } from '../managers/AchievementManager'
+import { ChapterManager } from '../managers/ChapterManager'
 import { getBeastTemplate } from '../data/spiritBeastData'
+import { getElementMultiplier, getElementConstraintText, getElementLabel, ELEMENT_INFO } from '../data/fiveElementsData'
 
 export class BattleScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
   private achievementManager = AchievementManager.getInstance()
+  private chapterManager = ChapterManager.getInstance()
   private player!: Player
   private stage!: Stage
   private enemies: Enemy[] = []
   private currentEnemyIndex = 0
+  private chapterId?: string
+  private levelId?: string
+  private isChapterBattle = false
   private playerSprite!: Phaser.GameObjects.Container
   private enemySprites: Phaser.GameObjects.Container[] = []
   private hpBarPlayer!: Phaser.GameObjects.Graphics
@@ -40,6 +46,7 @@ export class BattleScene extends Phaser.Scene {
   private activeEnemyDebuffs: { defenseDown: number; attackDown: number }[] = []
   private equipmentManager = EquipmentManager.getInstance()
   private meridianManager = MeridianManager.getInstance()
+  private elementStats = { advantageHits: 0, disadvantageHits: 0, totalElementBonusDamage: 0 }
 
   constructor() {
     super({ key: 'BattleScene' })
@@ -47,7 +54,7 @@ export class BattleScene extends Phaser.Scene {
 
   private alchemyManager = AlchemyManager.getInstance()
 
-  init(data: { stageId: number }): void {
+  init(data: { stageId: number; chapterId?: string; levelId?: string }): void {
     const save = this.saveManager.loadGame()!
     this.player = save.player
 
@@ -58,6 +65,10 @@ export class BattleScene extends Phaser.Scene {
 
     this.player.health = Math.min(this.player.health, this.player.maxHealth)
     this.player.mana = Math.min(this.player.mana, this.player.maxMana)
+
+    this.chapterId = data.chapterId
+    this.levelId = data.levelId
+    this.isChapterBattle = !!(data.chapterId && data.levelId)
 
     const stageId = data.stageId || save.currentStage
     const stageIndex = Math.min(Math.max(0, stageId - 1), STAGES.length - 1)
@@ -70,6 +81,7 @@ export class BattleScene extends Phaser.Scene {
     this.battleBeasts = this.spiritBeastManager.getBattleTeam(save.spiritBeast)
     this.activeBeastBuffs = this.battleBeasts.map(() => ({ attack: 0, defense: 0, critRate: 0, critDamage: 0 }))
     this.activeEnemyDebuffs = this.enemies.map(() => ({ defenseDown: 0, attackDown: 0 }))
+    this.elementStats = { advantageHits: 0, disadvantageHits: 0, totalElementBonusDamage: 0 }
 
     this.battleBeasts.forEach(beast => {
       if (beast) {
@@ -255,6 +267,15 @@ export class BattleScene extends Phaser.Scene {
     eye2.fillCircle(enemy.size / 5, -enemy.size / 8, 2.5)
 
     container.add([body, eye1, eye2])
+
+    if (enemy.element && enemy.element !== 'none') {
+      const elementRing = this.add.graphics()
+      const elementColor = ELEMENT_INFO[enemy.element].color
+      elementRing.lineStyle(2, elementColor, 0.8)
+      elementRing.strokeCircle(0, 0, enemy.size / 2 + 4)
+      container.add(elementRing)
+    }
+
     container.setSize(enemy.size, enemy.size)
     container.setInteractive({ useHandCursor: true })
 
@@ -266,7 +287,10 @@ export class BattleScene extends Phaser.Scene {
 
     this.enemySprites.push(container)
 
-    const name = this.add.text(x, y + enemy.size / 2 + 20, enemy.name, {
+    const nameText = enemy.element && enemy.element !== 'none'
+      ? `${getElementLabel(enemy.element)} ${enemy.name}`
+      : enemy.name
+    const name = this.add.text(x, y + enemy.size / 2 + 20, nameText, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '18px',
       color: '#' + enemy.color.toString(16).padStart(6, '0')
@@ -413,11 +437,17 @@ export class BattleScene extends Phaser.Scene {
 
   private useBeastSkill(beast: SpiritBeast, beastIndex: number, skill: SpiritBeastSkill, onComplete: () => void): void {
     this.spiritBeastManager.useSkill(beast, skill.id)
-    this.showMessage(`${beast.name} 使用了 ${skill.name}！`)
+
+    const enemy = this.enemies[this.currentEnemyIndex]
+    const elementResult = getElementMultiplier(skill.element, enemy.element)
+
+    let msgParts = [`${beast.name} 使用了 ${skill.name}！`]
+    if (elementResult.isAdvantage) msgParts.push('⚡克制！')
+    if (elementResult.isDisadvantage) msgParts.push('🔻被克！')
+    this.showMessage(msgParts.join(''))
 
     const beastSprite = this.beastSprites[beastIndex]
     const enemySprite = this.enemySprites[this.currentEnemyIndex]
-    const enemy = this.enemies[this.currentEnemyIndex]
 
     if (beastSprite) {
       this.tweens.add({
@@ -435,12 +465,28 @@ export class BattleScene extends Phaser.Scene {
           const attackBonus = this.activeBeastBuffs[beastIndex]?.attack || 0
           const totalAttack = beast.attack + attackBonus
           const baseDamage = skill.damage + totalAttack * 0.5
+          const elementDamage = Math.floor(baseDamage * elementResult.multiplier)
           const defenseReduction = this.activeEnemyDebuffs[this.currentEnemyIndex]?.defenseDown || 0
           const effectiveDefense = Math.max(0, enemy.defense - defenseReduction)
-          const actualDamage = Math.max(1, Math.floor(baseDamage - effectiveDefense * 0.3))
+          const actualDamage = Math.max(1, Math.floor(elementDamage - effectiveDefense * 0.3))
+
+          if (elementResult.isAdvantage) {
+            this.elementStats.advantageHits++
+            this.elementStats.totalElementBonusDamage += Math.floor(baseDamage * 0.5)
+          }
+          if (elementResult.isDisadvantage) {
+            this.elementStats.disadvantageHits++
+          }
 
           enemy.health -= actualDamage
-          this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, skill.color)
+          const dmgColor = elementResult.isAdvantage ? 0xffd54f : elementResult.isDisadvantage ? 0x78909c : skill.color
+          this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, dmgColor)
+
+          if (elementResult.isAdvantage) {
+            this.showElementAdvantageText(enemySprite.x, enemySprite.y - 55)
+          } else if (elementResult.isDisadvantage) {
+            this.showElementDisadvantageText(enemySprite.x, enemySprite.y - 55)
+          }
 
           if (enemySprite) {
             this.tweens.add({
@@ -513,10 +559,20 @@ export class BattleScene extends Phaser.Scene {
       const totalAttack = beast.attack + attackBonus
       const defenseReduction = this.activeEnemyDebuffs[this.currentEnemyIndex]?.defenseDown || 0
       const effectiveDefense = Math.max(0, enemy.defense - defenseReduction)
-      const actualDamage = Math.max(1, Math.floor(totalAttack - effectiveDefense * 0.3))
+      const rawDamage = totalAttack - effectiveDefense * 0.3
+      const { multiplier, isAdvantage, isDisadvantage } = getElementMultiplier(undefined, enemy.element)
+      const actualDamage = Math.max(1, Math.floor(rawDamage * multiplier))
+
+      if (isAdvantage) {
+        this.elementStats.advantageHits++
+      }
+      if (isDisadvantage) {
+        this.elementStats.disadvantageHits++
+      }
 
       enemy.health -= actualDamage
-      this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, beast.color)
+      const dmgColor = isAdvantage ? 0xffd54f : isDisadvantage ? 0x78909c : beast.color
+      this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, dmgColor)
 
       if (enemySprite) {
         this.tweens.add({
@@ -585,6 +641,46 @@ export class BattleScene extends Phaser.Scene {
     })
   }
 
+  private showElementAdvantageText(x: number, y: number): void {
+    const text = this.add.text(x, y, '⚡克制！', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '20px',
+      color: '#ffd54f',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5)
+
+    this.tweens.add({
+      targets: text,
+      y: y - 30,
+      alpha: 0,
+      duration: 900,
+      ease: 'Cubic.Out',
+      onComplete: () => text.destroy()
+    })
+  }
+
+  private showElementDisadvantageText(x: number, y: number): void {
+    const text = this.add.text(x, y, '🔻被克！', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '20px',
+      color: '#78909c',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5)
+
+    this.tweens.add({
+      targets: text,
+      y: y - 30,
+      alpha: 0,
+      duration: 900,
+      ease: 'Cubic.Out',
+      onComplete: () => text.destroy()
+    })
+  }
+
   private tickBeastCooldowns(): void {
     this.battleBeasts.forEach(beast => {
       if (beast) {
@@ -644,6 +740,18 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5)
 
     container.add([bg, iconText, nameText, cooldownText, manaText])
+
+    if (skill.element && skill.element !== 'none') {
+      const elementTag = this.add.text(-size / 2 + 6, -size / 2 + 4, ELEMENT_INFO[skill.element].icon + ELEMENT_INFO[skill.element].name, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '11px',
+        color: '#' + ELEMENT_INFO[skill.element].color.toString(16).padStart(6, '0'),
+        stroke: '#000000',
+        strokeThickness: 2
+      }).setOrigin(0)
+      container.add(elementTag)
+    }
+
     container.setSize(size, size)
 
     if (canUse) {
@@ -697,8 +805,17 @@ export class BattleScene extends Phaser.Scene {
     }
 
     this.isPlayerTurn = false
-    const baseDamage = SkillSystem.useSkill(this.player, skill) || 0
     const enemy = this.enemies[this.currentEnemyIndex]
+    const skillResult = SkillSystem.useSkill(this.player, skill, enemy.element)
+    const baseDamage = skillResult.damage || 0
+
+    if (skillResult.isAdvantage) {
+      this.elementStats.advantageHits++
+      this.elementStats.totalElementBonusDamage += Math.floor(baseDamage * 0.5)
+    }
+    if (skillResult.isDisadvantage) {
+      this.elementStats.disadvantageHits++
+    }
 
     const isCrit = Math.random() < this.player.critRate
     let damage = baseDamage
@@ -711,7 +828,12 @@ export class BattleScene extends Phaser.Scene {
       critText = '暴击！'
     }
 
-    this.showMessage(skill.name + '！' + critText + '造成 ' + damage + ' 点伤害')
+    const elementConstraintText = getElementConstraintText(skill.element || 'none', enemy.element || 'none')
+    let msgParts = [skill.name + '！']
+    if (critText) msgParts.push(critText)
+    if (elementConstraintText) msgParts.push(elementConstraintText)
+    msgParts.push('造成 ' + damage + ' 点伤害')
+    this.showMessage(msgParts.join(''))
 
     this.tweens.add({
       targets: this.playerSprite,
@@ -722,10 +844,17 @@ export class BattleScene extends Phaser.Scene {
     })
 
     this.time.delayedCall(200, () => {
-      this.createSkillEffect(skill.color, this.enemySprites[this.currentEnemyIndex].x, this.enemySprites[this.currentEnemyIndex].y)
+      const effectColor = skillResult.isAdvantage ? ELEMENT_INFO[skill.element || 'none'].color : skill.color
+      this.createSkillEffect(effectColor, this.enemySprites[this.currentEnemyIndex].x, this.enemySprites[this.currentEnemyIndex].y)
 
       const actualDamage = Math.max(1, damage - Math.floor(enemy.defense * 0.3))
       enemy.health -= actualDamage
+
+      if (skillResult.isAdvantage) {
+        this.showElementAdvantageText(this.enemySprites[this.currentEnemyIndex].x, this.enemySprites[this.currentEnemyIndex].y - 55)
+      } else if (skillResult.isDisadvantage) {
+        this.showElementDisadvantageText(this.enemySprites[this.currentEnemyIndex].x, this.enemySprites[this.currentEnemyIndex].y - 55)
+      }
 
       this.tweens.add({
         targets: this.enemySprites[this.currentEnemyIndex],
@@ -862,8 +991,17 @@ export class BattleScene extends Phaser.Scene {
 
       this.time.delayedCall(200, () => {
         const baseDamage = enemy.attack
-        const actualDamage = Math.max(1, baseDamage - Math.floor(this.player.defense * 0.5))
+        const { multiplier: enemyMultiplier, isAdvantage: enemyAdv, isDisadvantage: enemyDisadv } = getElementMultiplier(enemy.element, undefined)
+        const adjustedDamage = Math.floor(baseDamage * enemyMultiplier)
+        const actualDamage = Math.max(1, adjustedDamage - Math.floor(this.player.defense * 0.5))
         this.player.health -= actualDamage
+
+        let msg = enemy.name + ' 攻击你，造成 ' + actualDamage + ' 点伤害'
+        if (enemyAdv) {
+          msg = enemy.name + ' 攻击你！⚡克制！造成 ' + actualDamage + ' 点伤害'
+        } else if (enemyDisadv) {
+          msg = enemy.name + ' 攻击你！🔻被克！造成 ' + actualDamage + ' 点伤害'
+        }
 
         this.tweens.add({
           targets: this.playerSprite,
@@ -875,8 +1013,9 @@ export class BattleScene extends Phaser.Scene {
         })
 
         this.cameras.main.shake(200, 0.005)
-        this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, actualDamage, 0xef5350)
-        this.showMessage(enemy.name + ' 攻击你，造成 ' + actualDamage + ' 点伤害')
+        const dmgColor = enemyAdv ? 0xff5722 : enemyDisadv ? 0x78909c : 0xef5350
+        this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, actualDamage, dmgColor)
+        this.showMessage(msg)
         this.updateUI()
 
         this.time.delayedCall(700, () => {
@@ -927,17 +1066,16 @@ export class BattleScene extends Phaser.Scene {
       goldGained: this.stage.rewards.gold,
       spiritGained: this.stage.rewards.spirit,
       playerHealth: this.player.health,
-      herbDrops
+      herbDrops,
+      elementStats: { ...this.elementStats }
     }
 
     save.player = this.player
     save.player.gold += result.goldGained
     save.player.spirit += result.spiritGained
     const permBonus = this.alchemyManager.getPermanentBonus(save.alchemy)
-    const equipBonus = this.equipmentManager.calculateEquipmentBonus(save.equipment)
-    const meridBonus = this.meridianManager.calculateMeridianBonus(save.meridian)
     const levelResult = this.saveManager.addExp(save.player, result.expGained, permBonus)
-    this.saveManager.recalcPlayerStats(save.player, undefined, permBonus, equipBonus, meridBonus)
+    this.saveManager.recalcPlayerStatsFromSave(save)
     this.alchemyManager.checkRecipeUnlock(save.alchemy, save.player.level)
 
     this.battleBeasts.forEach((beast, index) => {
@@ -953,6 +1091,17 @@ export class BattleScene extends Phaser.Scene {
       save.highestStage = Math.min(this.stage.id + 1, STAGES.length)
     }
     save.currentStage = save.highestStage
+
+    let chapterRewards: ChapterReward[] = []
+    let shouldShowClosingStory = false
+    let shouldShowReview = false
+
+    if (this.isChapterBattle && this.chapterId && this.levelId) {
+      shouldShowClosingStory = this.chapterManager.shouldShowClosingStory(save, this.chapterId)
+      chapterRewards = this.chapterManager.completeLevel(save, this.chapterId, this.levelId, shouldShowClosingStory)
+      shouldShowReview = this.chapterManager.isChapterCompleted(save, this.chapterId)
+    }
+
     this.saveManager.saveGame(save)
 
     if (allUnlocked.length > 0) {
@@ -962,7 +1111,24 @@ export class BattleScene extends Phaser.Scene {
     this.time.delayedCall(1500, () => {
       this.cameras.main.fadeOut(500)
       this.time.delayedCall(500, () => {
-        this.scene.start('ResultScene', { result, leveledUp: levelResult.leveledUp, levels: levelResult.levels })
+        if (this.isChapterBattle && this.chapterId && this.levelId) {
+          if (shouldShowClosingStory) {
+            this.scene.start('StoryScene', {
+              chapterId: this.chapterId,
+              isClosingStory: true
+            })
+          } else if (shouldShowReview) {
+            this.scene.start('ChapterReviewScene', {
+              chapterId: this.chapterId
+            })
+          } else {
+            this.scene.start('ChapterMapScene', {
+              chapterId: this.chapterId
+            })
+          }
+        } else {
+          this.scene.start('ResultScene', { result, leveledUp: levelResult.leveledUp, levels: levelResult.levels })
+        }
       })
     })
   }
@@ -1100,7 +1266,13 @@ export class BattleScene extends Phaser.Scene {
 
       this.saveManager.saveGame(save)
       this.cameras.main.fadeOut(400)
-      this.time.delayedCall(400, () => this.scene.start('MenuScene'))
+      this.time.delayedCall(400, () => {
+        if (this.isChapterBattle && this.chapterId) {
+          this.scene.start('ChapterMapScene', { chapterId: this.chapterId })
+        } else {
+          this.scene.start('MenuScene')
+        }
+      })
     })
   }
 

@@ -1,4 +1,4 @@
-import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus, EquipmentBonus, MeridianBonus } from '../types'
+import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus, EquipmentBonus, MeridianBonus, AchievementBonus } from '../types'
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
 import { SectManager } from './SectManager'
 import { AlchemyManager } from './AlchemyManager'
@@ -8,6 +8,7 @@ import { EquipmentManager } from './EquipmentManager'
 import { MeridianManager } from './MeridianManager'
 import { ShopManager } from './ShopManager'
 import { AchievementManager } from './AchievementManager'
+import { ChapterManager } from './ChapterManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -51,6 +52,7 @@ export class SaveManager {
     const meridianManager = MeridianManager.getInstance()
     const shopManager = ShopManager.getInstance()
     const achievementManager = AchievementManager.getInstance()
+    const chapterManager = ChapterManager.getInstance()
     const save = {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
@@ -62,11 +64,13 @@ export class SaveManager {
       shop: shopManager.createInitialShopData(),
       achievement: achievementManager.createInitialAchievementData(),
       dungeon: this.createInitialDungeonProgress(),
+      chapter: chapterManager.createInitialChapterProgress(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now()
     }
     achievementManager.initializePlayerTreasures(save)
+    chapterManager.initializeChapterProgress(save)
     return save
   }
 
@@ -184,6 +188,12 @@ export class SaveManager {
 
     save.dungeon = this.validateDungeonProgress(save.dungeon)
 
+    const chapterManager = ChapterManager.getInstance()
+    if (!save.chapter) {
+      save.chapter = chapterManager.createInitialChapterProgress()
+    }
+    chapterManager.initializeChapterProgress(save)
+
     const achievementManager = AchievementManager.getInstance()
     save.achievement = achievementManager.validateAchievementData(save.achievement)
 
@@ -198,7 +208,7 @@ export class SaveManager {
     localStorage.removeItem(SAVE_KEY)
   }
 
-  recalcPlayerStats(player: Player, alchemyBuff?: { attack: number; defense: number }, permanentBonus?: PermanentStatsBonus, equipmentBonus?: EquipmentBonus, meridianBonus?: MeridianBonus): Player {
+  recalcPlayerStats(player: Player, alchemyBuff?: { attack: number; defense: number }, permanentBonus?: PermanentStatsBonus, equipmentBonus?: EquipmentBonus, meridianBonus?: MeridianBonus, achievementBonus?: AchievementBonus): Player {
     let bonusAttack = 0
     let bonusDefense = 0
     let bonusHealth = 0
@@ -235,10 +245,15 @@ export class SaveManager {
     const meridCritRate = (meridianBonus?.critRate || 0) / 100
     const meridCritDamage = (meridianBonus?.critDamage || 0) / 100
 
-    player.maxHealth = Math.floor((baseHealth + bonusHealth + permHealth + equipHealth + meridHealth) * (1 + (equipmentBonus?.maxHealth || 0)))
-    player.maxMana = Math.floor((50 + (player.level - 1) * 10 + permMana + equipMana + meridMana) * (1 + (equipmentBonus?.maxMana || 0)))
-    player.attack = Math.floor((baseAttack + bonusAttack + buffAttack + permAttack + equipAttack + meridAttack) * (1 + (equipmentBonus?.attack || 0)))
-    player.defense = Math.floor((baseDefense + bonusDefense + buffDefense + permDefense + equipDefense + meridDefense) * (1 + (equipmentBonus?.defense || 0)))
+    const achvAttack = achievementBonus?.attack || 0
+    const achvDefense = achievementBonus?.defense || 0
+    const achvHealth = achievementBonus?.maxHealth || 0
+    const achvMana = achievementBonus?.maxMana || 0
+
+    player.maxHealth = Math.floor((baseHealth + bonusHealth + permHealth + equipHealth + meridHealth + achvHealth) * (1 + (equipmentBonus?.maxHealth || 0)))
+    player.maxMana = Math.floor((50 + (player.level - 1) * 10 + permMana + equipMana + meridMana + achvMana) * (1 + (equipmentBonus?.maxMana || 0)))
+    player.attack = Math.floor((baseAttack + bonusAttack + buffAttack + permAttack + equipAttack + meridAttack + achvAttack) * (1 + (equipmentBonus?.attack || 0)))
+    player.defense = Math.floor((baseDefense + bonusDefense + buffDefense + permDefense + equipDefense + meridDefense + achvDefense) * (1 + (equipmentBonus?.defense || 0)))
     player.critRate = equipCritRate + meridCritRate
     player.critDamage = 0.5 + equipCritDamage + meridCritDamage
 
@@ -252,13 +267,15 @@ export class SaveManager {
     const alchemyManager = AlchemyManager.getInstance()
     const equipmentManager = EquipmentManager.getInstance()
     const meridianManager = MeridianManager.getInstance()
+    const achievementManager = AchievementManager.getInstance()
 
     const buff = alchemyManager.getBuffBonus(save.alchemy)
     const permBonus = alchemyManager.getPermanentBonus(save.alchemy)
     const equipBonus = equipmentManager.calculateEquipmentBonus(save.equipment)
     const meridBonus = meridianManager.calculateMeridianBonus(save.meridian)
+    const achvBonus = achievementManager.getAchievementBonus(save.achievement)
 
-    return this.recalcPlayerStats(save.player, buff, permBonus, equipBonus, meridBonus)
+    return this.recalcPlayerStats(save.player, buff, permBonus, equipBonus, meridBonus, achvBonus)
   }
 
   addExp(player: Player, exp: number, permanentBonus?: PermanentStatsBonus): { leveledUp: boolean; levels: number } {

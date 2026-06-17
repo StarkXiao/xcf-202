@@ -1,4 +1,4 @@
-import type { GameSave, AchievementData, Achievement, MonsterEntry, TreasureEntry, StoryEntry, AchievementProgressUpdate, AchievementReward } from '../types'
+import type { GameSave, AchievementData, Achievement, MonsterEntry, TreasureEntry, StoryEntry, AchievementProgressUpdate, AchievementReward, AchievementBonus } from '../types'
 import { ACHIEVEMENTS, MONSTER_TEMPLATES, TREASURE_TEMPLATES, STORY_TEMPLATES } from '../data/achievementData'
 import { SaveManager } from './SaveManager'
 
@@ -48,6 +48,12 @@ export class AchievementManager {
       totalStoriesCompleted: 0,
       totalAchievementsUnlocked: 0,
       totalRewardsClaimed: 0,
+      permanentBonus: {
+        attack: 0,
+        defense: 0,
+        maxHealth: 0,
+        maxMana: 0
+      },
       lastAchievementCheck: Date.now()
     }
   }
@@ -120,6 +126,12 @@ export class AchievementManager {
       totalStoriesCompleted: achievement.totalStoriesCompleted || 0,
       totalAchievementsUnlocked: achievement.totalAchievementsUnlocked || 0,
       totalRewardsClaimed: achievement.totalRewardsClaimed || 0,
+      permanentBonus: {
+        attack: achievement.permanentBonus?.attack || 0,
+        defense: achievement.permanentBonus?.defense || 0,
+        maxHealth: achievement.permanentBonus?.maxHealth || 0,
+        maxMana: achievement.permanentBonus?.maxMana || 0
+      },
       lastAchievementCheck: achievement.lastAchievementCheck || Date.now()
     }
   }
@@ -174,8 +186,34 @@ export class AchievementManager {
     }
   }
 
-  private handleTreasureCollect(data: AchievementData, treasureId: string): void {
-    const treasure = data.treasures.find(t => t.id === treasureId)
+  private handleTreasureCollect(data: AchievementData, treasureId: string, treasureInfo?: Partial<TreasureEntry>): void {
+    let treasure = data.treasures.find(t => t.id === treasureId)
+    if (!treasure) {
+      const template = TREASURE_TEMPLATES.find(t => t.id === treasureId)
+      if (template) {
+        treasure = {
+          ...template,
+          isCollected: false,
+          collectedAt: null
+        }
+        data.treasures.push(treasure)
+      } else if (treasureInfo) {
+        treasure = {
+          id: treasureId,
+          name: treasureInfo.name || '未知法宝',
+          description: treasureInfo.description || '',
+          icon: treasureInfo.icon || '💎',
+          color: treasureInfo.color || 0x9e9e9e,
+          rarity: treasureInfo.rarity || 'common',
+          maxLevel: treasureInfo.maxLevel || 10,
+          isCollected: false,
+          collectedAt: null
+        }
+        data.treasures.push(treasure)
+      } else {
+        return
+      }
+    }
     if (treasure && !treasure.isCollected) {
       treasure.isCollected = true
       treasure.collectedAt = Date.now()
@@ -295,6 +333,9 @@ export class AchievementManager {
     achievement.claimedAt = Date.now()
     save.achievement.totalRewardsClaimed++
 
+    let healthGain = 0
+    let manaGain = 0
+
     achievement.rewards.forEach(reward => {
       switch (reward.type) {
         case 'gold':
@@ -307,23 +348,31 @@ export class AchievementManager {
           this.saveManager.addExp(save.player, reward.value)
           break
         case 'attack':
-          save.player.attack += reward.value
+          save.achievement.permanentBonus.attack += reward.value
           break
         case 'defense':
-          save.player.defense += reward.value
+          save.achievement.permanentBonus.defense += reward.value
           break
         case 'maxHealth':
-          save.player.maxHealth += reward.value
-          save.player.health = Math.min(save.player.health + reward.value, save.player.maxHealth)
+          save.achievement.permanentBonus.maxHealth += reward.value
+          healthGain += reward.value
           break
         case 'maxMana':
-          save.player.maxMana += reward.value
-          save.player.mana = Math.min(save.player.mana + reward.value, save.player.maxMana)
+          save.achievement.permanentBonus.maxMana += reward.value
+          manaGain += reward.value
           break
       }
     })
 
     this.saveManager.recalcPlayerStatsFromSave(save)
+
+    if (healthGain > 0) {
+      save.player.health = Math.min(save.player.health + healthGain, save.player.maxHealth)
+    }
+    if (manaGain > 0) {
+      save.player.mana = Math.min(save.player.mana + manaGain, save.player.maxMana)
+    }
+
     this.saveManager.saveGame(save)
 
     return { success: true, rewards: achievement.rewards, message: '奖励领取成功' }
@@ -387,14 +436,34 @@ export class AchievementManager {
     }
   }
 
+  getAchievementBonus(data: AchievementData): AchievementBonus {
+    return { ...data.permanentBonus }
+  }
+
   initializePlayerTreasures(save: GameSave): void {
     save.player.treasures.forEach(treasure => {
-      this.updateProgress(save, {
-        type: 'treasure_collect',
-        id: treasure.id,
-        value: 1
+      this.collectTreasure(save, treasure.id, {
+        name: treasure.name,
+        description: treasure.description,
+        icon: treasure.name.charAt(0),
+        color: treasure.color,
+        rarity: 'common',
+        maxLevel: treasure.maxLevel
       })
     })
+  }
+
+  collectTreasure(save: GameSave, treasureId: string, treasureInfo?: Partial<TreasureEntry>): { unlockedAchievements: Achievement[] } {
+    const achievementData = save.achievement
+    const unlockedAchievements: Achievement[] = []
+
+    this.handleTreasureCollect(achievementData, treasureId, treasureInfo)
+    this.updateCollectionAchievements(achievementData, unlockedAchievements)
+
+    achievementData.lastAchievementCheck = Date.now()
+    this.saveManager.saveGame(save)
+
+    return { unlockedAchievements }
   }
 
   checkStageStories(save: GameSave, stageId: number): void {

@@ -46,8 +46,10 @@ export class ResultScene extends Phaser.Scene {
     overlay.fillRect(0, 0, width, height)
 
     const hasHerbDrops = this.result.victory && this.result.herbDrops && this.result.herbDrops.length > 0
+    const hasElementStats = this.result.victory && this.result.elementStats && (this.result.elementStats.advantageHits > 0 || this.result.elementStats.disadvantageHits > 0)
     const panelWidth = 500
-    const panelHeight = hasHerbDrops ? 560 : 480
+    let panelHeight = hasHerbDrops ? 560 : 480
+    if (hasElementStats) panelHeight += 60
     const panelX = width / 2
     const panelY = height / 2
 
@@ -152,6 +154,39 @@ export class ResultScene extends Phaser.Scene {
     })
 
     let herbY = rewardsStartY + 3 * 45 + 15
+    if (this.result.elementStats && (this.result.elementStats.advantageHits > 0 || this.result.elementStats.disadvantageHits > 0)) {
+      const es = this.result.elementStats
+      const elementY = herbY
+      const elementTitle = this.add.text(x, elementY, '☯ 五行克制统计：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#ffd54f',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: elementTitle,
+        alpha: 1,
+        duration: 400,
+        delay: 1100
+      })
+
+      const elementDetail = this.add.text(x, elementY + 28,
+        `⚡克制 ${es.advantageHits}次  |  🔻被克 ${es.disadvantageHits}次  |  加成伤害 +${es.totalElementBonusDamage}`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '17px',
+          color: '#b0bec5'
+        }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: elementDetail,
+        alpha: 1,
+        duration: 400,
+        delay: 1250
+      })
+
+      herbY = elementY + 60
+    }
+
     if (hasHerbs && this.result.herbDrops) {
       const herbTitle = this.add.text(x, herbY, '🌿 获得药材：', {
         fontFamily: '"Microsoft YaHei", serif',

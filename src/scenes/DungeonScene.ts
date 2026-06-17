@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { GameSave, DungeonProgress, DungeonRoom, DungeonEvent, DungeonEventChoice, Enemy, Skill, DungeonBuff } from '../types'
+import type { GameSave, DungeonProgress, DungeonRoom, DungeonEvent, DungeonEventChoice, Enemy, Skill, DungeonBuff, ElementType } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { DungeonManager } from '../managers/DungeonManager'
 import { SkillSystem } from '../managers/SkillSystem'
@@ -7,6 +7,7 @@ import { AlchemyManager } from '../managers/AlchemyManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
 import { MeridianManager } from '../managers/MeridianManager'
 import { DUNGEON_FLOOR_COLORS } from '../data/dungeonData'
+import { getElementMultiplier, getElementConstraintText, ELEMENT_INFO } from '../data/fiveElementsData'
 
 type DungeonPhase = 'map' | 'room_intro' | 'battle' | 'event' | 'reward' | 'floor_clear' | 'dungeon_complete' | 'dungeon_fail'
 
@@ -562,9 +563,10 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     this.battleState.isPlayerTurn = false
-    const baseDamage = SkillSystem.useSkill(this.save.player, skill) || 0
     const enemy = this.battleState.enemies[this.battleState.currentEnemyIndex]
     const enemySprite = this.battleState.enemySprites[this.battleState.currentEnemyIndex]
+    const skillResult = SkillSystem.useSkill(this.save.player, skill, enemy.element)
+    const baseDamage = skillResult.damage || 0
 
     const isCrit = Math.random() < this.battleState.playerCritRate
     let damage = baseDamage
@@ -577,7 +579,11 @@ export class DungeonScene extends Phaser.Scene {
       critText = '暴击！'
     }
 
-    this.showBattleMessage(skill.name + '！' + critText)
+    const elementText = getElementConstraintText(skill.element || 'none', enemy.element || 'none')
+    let msgParts = [skill.name + '！']
+    if (critText) msgParts.push(critText)
+    if (elementText) msgParts.push(elementText)
+    this.showBattleMessage(msgParts.join(''))
 
     this.tweens.add({
       targets: this.playerSprite,
@@ -589,7 +595,8 @@ export class DungeonScene extends Phaser.Scene {
 
     this.time.delayedCall(200, () => {
       if (enemySprite) {
-        this.createSkillEffect(skill.color, enemySprite.x, enemySprite.y)
+        const effectColor = skillResult.isAdvantage ? ELEMENT_INFO[skill.element || 'none'].color : skill.color
+        this.createSkillEffect(effectColor, enemySprite.x, enemySprite.y)
       }
 
       const defenseReduction = this.battleState!.enemyDebuffs[this.battleState!.currentEnemyIndex]?.defenseDown || 0
@@ -606,7 +613,14 @@ export class DungeonScene extends Phaser.Scene {
           yoyo: true,
           repeat: 2
         })
-        this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, damageColor, false, isCrit)
+        const dmgColor = skillResult.isAdvantage ? 0xffd54f : skillResult.isDisadvantage ? 0x78909c : damageColor
+        this.showDamageText(enemySprite.x, enemySprite.y - 30, actualDamage, dmgColor, false, isCrit)
+
+        if (skillResult.isAdvantage) {
+          this.showBattleElementText(enemySprite.x, enemySprite.y - 55, '⚡克制！', 0xffd54f)
+        } else if (skillResult.isDisadvantage) {
+          this.showBattleElementText(enemySprite.x, enemySprite.y - 55, '🔻被克！', 0x78909c)
+        }
       }
 
       this.updateBattleUI()
@@ -693,7 +707,9 @@ export class DungeonScene extends Phaser.Scene {
       this.time.delayedCall(200, () => {
         const attackReduction = this.battleState!.enemyDebuffs[this.battleState!.currentEnemyIndex]?.attackDown || 0
         const effectiveAttack = Math.max(1, enemy.attack - attackReduction)
-        const actualDamage = Math.max(1, effectiveAttack - Math.floor(this.save.player.defense * 0.5))
+        const { multiplier: enemyMultiplier, isAdvantage: enemyAdv, isDisadvantage: enemyDisadv } = getElementMultiplier(enemy.element, undefined)
+        const elementAdjustedAttack = Math.floor(effectiveAttack * enemyMultiplier)
+        const actualDamage = Math.max(1, elementAdjustedAttack - Math.floor(this.save.player.defense * 0.5))
         this.save.player.health -= actualDamage
 
         this.tweens.add({
@@ -706,8 +722,16 @@ export class DungeonScene extends Phaser.Scene {
         })
 
         this.cameras.main.shake(200, 0.005)
-        this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, actualDamage, 0xef5350)
-        this.showBattleMessage(enemy.name + ' 攻击你，造成 ' + actualDamage + ' 点伤害')
+        const dmgColor = enemyAdv ? 0xff5722 : enemyDisadv ? 0x78909c : 0xef5350
+        this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, actualDamage, dmgColor)
+
+        let msg = enemy.name + ' 攻击你，造成 ' + actualDamage + ' 点伤害'
+        if (enemyAdv) {
+          msg = enemy.name + ' 攻击你！⚡克制！造成 ' + actualDamage + ' 点伤害'
+        } else if (enemyDisadv) {
+          msg = enemy.name + ' 攻击你！🔻被克！造成 ' + actualDamage + ' 点伤害'
+        }
+        this.showBattleMessage(msg)
         this.updateBattleUI()
 
         this.time.delayedCall(700, () => {
@@ -1456,6 +1480,26 @@ export class DungeonScene extends Phaser.Scene {
       alpha: 0,
       scale: 1.2,
       duration: 800,
+      ease: 'Cubic.Out',
+      onComplete: () => text.destroy()
+    })
+  }
+
+  private showBattleElementText(x: number, y: number, content: string, color: number): void {
+    const text = this.add.text(x, y, content, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#' + color.toString(16).padStart(6, '0'),
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5)
+
+    this.tweens.add({
+      targets: text,
+      y: y - 30,
+      alpha: 0,
+      duration: 900,
       ease: 'Cubic.Out',
       onComplete: () => text.destroy()
     })

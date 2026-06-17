@@ -1,4 +1,4 @@
-import type { SpiritBeastTemplate, SpiritBeastSkill, SpiritBeastRarity } from '../types'
+import type { SpiritBeastTemplate, SpiritBeastSkill, SpiritBeastRarity, ElementType } from '../types'
 
 const createSkill = (
   id: string,
@@ -9,7 +9,8 @@ const createSkill = (
   unlockStage: number,
   color: number,
   icon: string,
-  effects: Partial<SpiritBeastSkill> = {}
+  effects: Partial<SpiritBeastSkill> = {},
+  element?: ElementType
 ): SpiritBeastSkill => ({
   id,
   name,
@@ -20,6 +21,7 @@ const createSkill = (
   unlockStage,
   color,
   icon,
+  element,
   ...effects
 })
 
@@ -33,7 +35,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     1,
     0xff5722,
     '🔥',
-    { damage: 40 }
+    { damage: 40 },
+    'fire'
   ),
   thunder_strike: createSkill(
     'thunder_strike',
@@ -44,7 +47,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     1,
     0xffeb3b,
     '⚡',
-    { damage: 55 }
+    { damage: 55 },
+    'metal'
   ),
   ice_shard: createSkill(
     'ice_shard',
@@ -55,7 +59,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     1,
     0x00bcd4,
     '❄',
-    { damage: 30 }
+    { damage: 30 },
+    'water'
   ),
   heal_aura: createSkill(
     'heal_aura',
@@ -66,7 +71,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     2,
     0x81c784,
     '💚',
-    { heal: 60 }
+    { heal: 60 },
+    'wood'
   ),
   battle_cry: createSkill(
     'battle_cry',
@@ -88,7 +94,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     2,
     0x78909c,
     '🛡',
-    { buffEffect: { type: 'defense', value: 15, duration: 4 } }
+    { buffEffect: { type: 'defense', value: 15, duration: 4 } },
+    'earth'
   ),
   poison_fang: createSkill(
     'poison_fang',
@@ -99,7 +106,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     3,
     0x9ccc65,
     '🦷',
-    { damage: 25, debuffEffect: { type: 'defenseDown', value: 20, duration: 3 } }
+    { damage: 25, debuffEffect: { type: 'defenseDown', value: 20, duration: 3 } },
+    'wood'
   ),
   shadow_strike: createSkill(
     'shadow_strike',
@@ -110,7 +118,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     3,
     0x7e57c2,
     '🌑',
-    { damage: 70 }
+    { damage: 70 },
+    'water'
   ),
   divine_heal: createSkill(
     'divine_heal',
@@ -121,7 +130,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     4,
     0xffd54f,
     '✨',
-    { heal: 120 }
+    { heal: 120 },
+    'wood'
   ),
   dragon_rage: createSkill(
     'dragon_rage',
@@ -132,7 +142,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     4,
     0xf44336,
     '🐉',
-    { damage: 100 }
+    { damage: 100 },
+    'metal'
   ),
   phoniex_flame: createSkill(
     'phoniex_flame',
@@ -143,7 +154,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     5,
     0xff7043,
     '🔮',
-    { damage: 120, heal: 50 }
+    { damage: 120, heal: 50 },
+    'fire'
   ),
   qilin_blessing: createSkill(
     'qilin_blessing',
@@ -154,7 +166,8 @@ export const SPIRIT_BEAST_SKILLS: Record<string, SpiritBeastSkill> = {
     5,
     0xffd54f,
     '🌟',
-    { buffEffect: { type: 'attack', value: 40, duration: 5 } }
+    { buffEffect: { type: 'attack', value: 40, duration: 5 } },
+    'earth'
   )
 }
 
