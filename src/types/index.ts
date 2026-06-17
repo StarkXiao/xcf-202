@@ -521,6 +521,7 @@ export interface GameSave {
   currentStage: number
   highestStage: number
   lastPlayTime: number
+  offlineIncome: OfflineIncomeData
 }
 
 export type DungeonRoomType = 'battle' | 'event' | 'treasure' | 'rest' | 'shop' | 'boss' | 'mystery'
@@ -947,5 +948,39 @@ export interface AchievementProgressUpdate {
   id?: string
   value: number
   stageId?: number
+}
+
+export interface OfflineIncome {
+  gold: number
+  spirit: number
+  exp: number
+}
+
+export interface OfflineIncomeResult {
+  income: OfflineIncome
+  offlineSeconds: number
+  maxSeconds: number
+  isCapped: boolean
+  isAbnormal: boolean
+  abnormalReason?: string
+}
+
+export interface OfflineIncomeConfig {
+  maxOfflineHours: number
+  goldPerMinuteBase: number
+  spiritPerMinuteBase: number
+  expPerMinuteBase: number
+  stageMultiplier: number
+  goldCapBase: number
+  spiritCapBase: number
+  expCapBase: number
+}
+
+export interface OfflineIncomeData {
+  lastSettleTime: number
+  totalOfflineTime: number
+  totalGoldEarned: number
+  totalSpiritEarned: number
+  totalExpEarned: number
 }
 

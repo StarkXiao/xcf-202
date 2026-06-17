@@ -2,18 +2,22 @@ import Phaser from 'phaser'
 import type { GameSave } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { AchievementManager } from '../managers/AchievementManager'
+import { OfflineIncomeManager } from '../managers/OfflineIncomeManager'
 import { STAGES } from '../data/gameData'
 
 export class MenuScene extends Phaser.Scene {
   private save!: GameSave
   private saveManager: SaveManager
   private achievementManager: AchievementManager
+  private offlineIncomeManager: OfflineIncomeManager
   private notificationBadge!: Phaser.GameObjects.Text
+  private pendingOfflineIncome: ReturnType<SaveManager['settleOfflineIncome']> | null = null
 
   constructor() {
     super({ key: 'MenuScene' })
     this.saveManager = SaveManager.getInstance()
     this.achievementManager = AchievementManager.getInstance()
+    this.offlineIncomeManager = OfflineIncomeManager.getInstance()
   }
 
   init(): void {
@@ -23,6 +27,11 @@ export class MenuScene extends Phaser.Scene {
       this.saveManager.saveGame(this.save)
     }
     this.saveManager.recalcPlayerStatsFromSave(this.save)
+
+    if (existingSave) {
+      this.pendingOfflineIncome = this.saveManager.settleOfflineIncome(this.save)
+      this.saveManager.recalcPlayerStatsFromSave(this.save)
+    }
   }
 
   create(): void {
@@ -65,6 +74,12 @@ export class MenuScene extends Phaser.Scene {
     })
 
     this.createMenuButtons(width, height)
+
+    if (this.pendingOfflineIncome && this.pendingOfflineIncome.hasIncome) {
+      this.time.delayedCall(800, () => {
+        this.showOfflineIncomePopup(this.pendingOfflineIncome!)
+      })
+    }
   }
 
   private createCosmicBackground(width: number, height: number): void {
@@ -368,6 +383,149 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('ChapterMapScene')
+    })
+  }
+
+  private showOfflineIncomePopup(result: ReturnType<SaveManager['settleOfflineIncome']>): void {
+    const { width, height } = this.scale
+    const objectsToDestroy: Phaser.GameObjects.GameObject[] = []
+
+    const overlay = this.add.graphics()
+    overlay.fillStyle(0x000000, 0.8)
+    overlay.fillRect(0, 0, width, height)
+    objectsToDestroy.push(overlay)
+
+    const panelWidth = 480
+    const rewardLabels: { icon: string; label: string; value: number; color: string }[] = []
+
+    if (result.playerIncome.gold > 0) {
+      rewardLabels.push({ icon: '💰', label: '金币', value: result.playerIncome.gold, color: '#ffd54f' })
+    }
+    if (result.playerIncome.spirit > 0) {
+      rewardLabels.push({ icon: '✨', label: '灵气', value: result.playerIncome.spirit, color: '#4fc3f7' })
+    }
+    if (result.playerIncome.exp > 0) {
+      rewardLabels.push({ icon: '📚', label: '经验', value: result.playerIncome.exp, color: '#81c784' })
+    }
+
+    const sectResources = result.sectResources as any
+    if (sectResources) {
+      if (sectResources.gold && sectResources.gold > 0) {
+        rewardLabels.push({ icon: '🏛️', label: '宗门金币', value: sectResources.gold, color: '#ffd54f' })
+      }
+      if (sectResources.spirit && sectResources.spirit > 0) {
+        rewardLabels.push({ icon: '🏛️', label: '宗门灵气', value: sectResources.spirit, color: '#4fc3f7' })
+      }
+      if (sectResources.stone && sectResources.stone > 0) {
+        rewardLabels.push({ icon: '🪨', label: '石料', value: sectResources.stone, color: '#90a4ae' })
+      }
+      if (sectResources.wood && sectResources.wood > 0) {
+        rewardLabels.push({ icon: '🪵', label: '木材', value: sectResources.wood, color: '#8d6e63' })
+      }
+      if (sectResources.herb && sectResources.herb > 0) {
+        rewardLabels.push({ icon: '🌿', label: '草药', value: sectResources.herb, color: '#66bb6a' })
+      }
+    }
+
+    const extraHeight = (result.isCapped || (result.isAbnormal && result.abnormalReason)) ? 40 : 0
+    const panelHeight = 220 + rewardLabels.length * 45 + extraHeight
+    const panelX = (width - panelWidth) / 2
+    const panelY = (height - panelHeight) / 2
+
+    const panel = this.add.graphics()
+    panel.fillStyle(0x1a1a2e, 0.98)
+    panel.lineStyle(3, 0xffd54f, 0.9)
+    this.roundedRect(panel, panelX, panelY, panelWidth, panelHeight, 20)
+    objectsToDestroy.push(panel)
+
+    const title = this.add.text(width / 2, panelY + 45, '✨ 离线收益', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '32px',
+      color: '#ffd54f',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+    objectsToDestroy.push(title)
+
+    const timeText = this.add.text(width / 2, panelY + 90, 
+      `离线时长: ${this.offlineIncomeManager.formatTime(result.offlineSeconds)}`,
+      {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#81c784'
+      }).setOrigin(0.5)
+    objectsToDestroy.push(timeText)
+
+    let yOffset = panelY + 140
+
+    rewardLabels.forEach((reward, index) => {
+      const rewardBg = this.add.graphics()
+      rewardBg.fillStyle(0x2d2d44, 0.6)
+      this.roundedRect(rewardBg, panelX + 40, yOffset + index * 45, panelWidth - 80, 38, 8)
+      objectsToDestroy.push(rewardBg)
+
+      const labelText = this.add.text(panelX + 60, yOffset + index * 45 + 19, 
+        `${reward.icon} ${reward.label}`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '18px',
+          color: '#ffffff'
+        }).setOrigin(0, 0.5)
+      objectsToDestroy.push(labelText)
+
+      const valueText = this.add.text(panelX + panelWidth - 60, yOffset + index * 45 + 19, 
+        `+${reward.value}`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '20px',
+          color: reward.color,
+          fontStyle: 'bold'
+        }).setOrigin(1, 0.5)
+      objectsToDestroy.push(valueText)
+    })
+
+    const hintY = panelY + 140 + rewardLabels.length * 45 + 15
+    if (result.isCapped) {
+      const capText = this.add.text(width / 2, hintY, 
+        '⚠ 离线收益已达上限，及时上线领取哦~',
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '16px',
+          color: '#ffb74d'
+        }).setOrigin(0.5)
+      objectsToDestroy.push(capText)
+    }
+
+    if (result.isAbnormal && result.abnormalReason) {
+      const abnormalText = this.add.text(width / 2, hintY, 
+        `⚠ ${result.abnormalReason}`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '16px',
+          color: '#ef5350'
+        }).setOrigin(0.5)
+      objectsToDestroy.push(abnormalText)
+    }
+
+    const okBtnY = panelY + panelHeight - 60
+    const okBtn = this.createButton(width / 2, okBtnY, '领取奖励', 0xffd54f, () => {
+      objectsToDestroy.forEach(obj => obj.destroy())
+      okBtn.destroy()
+      this.events.emit('offline:collected')
+    })
+    okBtn.setScale(0.9)
+
+    this.tweens.add({
+      targets: [overlay],
+      alpha: { from: 0, to: 1 },
+      duration: 300
+    })
+
+    this.tweens.add({
+      targets: [panel, title, timeText, okBtn],
+      scale: { from: 0.8, to: 1 },
+      alpha: { from: 0, to: 1 },
+      duration: 400,
+      ease: 'Back.easeOut'
     })
   }
 

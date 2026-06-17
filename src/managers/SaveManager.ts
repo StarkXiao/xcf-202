@@ -9,6 +9,7 @@ import { MeridianManager } from './MeridianManager'
 import { ShopManager } from './ShopManager'
 import { AchievementManager } from './AchievementManager'
 import { ChapterManager } from './ChapterManager'
+import { OfflineIncomeManager } from './OfflineIncomeManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -53,6 +54,7 @@ export class SaveManager {
     const shopManager = ShopManager.getInstance()
     const achievementManager = AchievementManager.getInstance()
     const chapterManager = ChapterManager.getInstance()
+    const offlineIncomeManager = OfflineIncomeManager.getInstance()
     const save = {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
@@ -67,7 +69,8 @@ export class SaveManager {
       chapter: chapterManager.createInitialChapterProgress(),
       currentStage: 1,
       highestStage: 1,
-      lastPlayTime: Date.now()
+      lastPlayTime: Date.now(),
+      offlineIncome: offlineIncomeManager.createInitialOfflineIncomeData()
     }
     achievementManager.initializePlayerTreasures(save)
     chapterManager.initializeChapterProgress(save)
@@ -114,20 +117,48 @@ export class SaveManager {
     }
   }
 
-  settleOfflineIncome(save: GameSave): { resources: any; seconds: number; hasIncome: boolean } {
+  settleOfflineIncome(save: GameSave): { 
+    playerIncome: { gold: number; spirit: number; exp: number }
+    sectResources: any
+    offlineSeconds: number
+    hasIncome: boolean
+    isAbnormal: boolean
+    abnormalReason?: string
+    isCapped: boolean
+  } {
     const sectManager = SectManager.getInstance()
+    const offlineIncomeManager = OfflineIncomeManager.getInstance()
+
     sectManager.checkDailyReset(save.sect)
     sectManager.updateQuestProgress(save.sect)
-    
-    const { resources, seconds } = sectManager.calculateOfflineProduction(save.sect)
-    
-    const hasIncome = Object.values(resources).some(v => v && v > 0)
-    if (hasIncome) {
+
+    const playerResult = offlineIncomeManager.calculateOfflineIncome(save)
+    const { resources: sectResources, seconds: sectSeconds } = sectManager.calculateOfflineProduction(save.sect)
+
+    const hasPlayerIncome = offlineIncomeManager.hasIncome(playerResult)
+    const hasSectIncome = Object.values(sectResources).some(v => v && v > 0)
+    const hasIncome = hasPlayerIncome || hasSectIncome
+
+    if (hasPlayerIncome && !playerResult.isAbnormal) {
+      offlineIncomeManager.applyOfflineIncome(save, playerResult)
+    }
+
+    if (hasSectIncome) {
       sectManager.collectResources(save.sect)
     }
-    
+
+    save.lastPlayTime = Date.now()
     this.saveGame(save)
-    return { resources, seconds, hasIncome }
+
+    return {
+      playerIncome: playerResult.income,
+      sectResources,
+      offlineSeconds: Math.max(playerResult.offlineSeconds, sectSeconds),
+      hasIncome,
+      isAbnormal: playerResult.isAbnormal,
+      abnormalReason: playerResult.abnormalReason,
+      isCapped: playerResult.isCapped
+    }
   }
 
   saveGame(save: GameSave): void {
@@ -196,6 +227,9 @@ export class SaveManager {
 
     const achievementManager = AchievementManager.getInstance()
     save.achievement = achievementManager.validateAchievementData(save.achievement)
+
+    const offlineIncomeManager = OfflineIncomeManager.getInstance()
+    save.offlineIncome = offlineIncomeManager.validateOfflineIncomeData(save.offlineIncome)
 
     return save
   }
