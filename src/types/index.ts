@@ -29,6 +29,41 @@ export interface Treasure {
   elementDamageBonus?: number
 }
 
+export type ResonanceType = 'element' | 'set' | 'special'
+
+export interface ResonanceBonus {
+  attack?: number
+  defense?: number
+  maxHealth?: number
+  critRate?: number
+  critDamage?: number
+  elementDamageBonus?: number
+}
+
+export interface Resonance {
+  id: string
+  name: string
+  description: string
+  type: ResonanceType
+  requiredTreasureIds?: string[]
+  requiredElements?: ElementType[]
+  requiredElementCount?: number
+  bonus: ResonanceBonus
+  color: number
+  icon: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+}
+
+export interface ActiveResonance {
+  resonance: Resonance
+  activatedTreasures: Treasure[]
+}
+
+export interface ResonanceResult {
+  activeResonances: ActiveResonance[]
+  totalBonus: ResonanceBonus
+}
+
 export interface Player {
   name: string
   level: number

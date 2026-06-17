@@ -1,5 +1,6 @@
 import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus, EquipmentBonus, MeridianBonus, AchievementBonus } from '../types'
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
+import { calculateTreasureResonance } from '../data/resonanceData'
 import { SectManager } from './SectManager'
 import { AlchemyManager } from './AlchemyManager'
 import { SpiritBeastManager } from './SpiritBeastManager'
@@ -269,6 +270,9 @@ export class SaveManager {
       bonusHealth += t.healthBonus * t.level
     })
 
+    const resonanceResult = calculateTreasureResonance(player.treasures)
+    const resonBonus = resonanceResult.totalBonus
+
     const baseHealth = 100 + (player.level - 1) * 20
     const baseAttack = 20 + (player.level - 1) * 5
     const baseDefense = 10 + (player.level - 1) * 3
@@ -300,12 +304,18 @@ export class SaveManager {
     const achvHealth = achievementBonus?.maxHealth || 0
     const achvMana = achievementBonus?.maxMana || 0
 
-    player.maxHealth = Math.floor((baseHealth + bonusHealth + permHealth + equipHealth + meridHealth + achvHealth) * (1 + (equipmentBonus?.maxHealth || 0)))
+    const resonAttack = resonBonus.attack || 0
+    const resonDefense = resonBonus.defense || 0
+    const resonHealth = resonBonus.maxHealth || 0
+    const resonCritRate = resonBonus.critRate || 0
+    const resonCritDamage = resonBonus.critDamage || 0
+
+    player.maxHealth = Math.floor((baseHealth + bonusHealth + permHealth + equipHealth + meridHealth + achvHealth + resonHealth) * (1 + (equipmentBonus?.maxHealth || 0)))
     player.maxMana = Math.floor((50 + (player.level - 1) * 10 + permMana + equipMana + meridMana + achvMana) * (1 + (equipmentBonus?.maxMana || 0)))
-    player.attack = Math.floor((baseAttack + bonusAttack + buffAttack + permAttack + equipAttack + meridAttack + achvAttack) * (1 + (equipmentBonus?.attack || 0)))
-    player.defense = Math.floor((baseDefense + bonusDefense + buffDefense + permDefense + equipDefense + meridDefense + achvDefense) * (1 + (equipmentBonus?.defense || 0)))
-    player.critRate = equipCritRate + meridCritRate
-    player.critDamage = 0.5 + equipCritDamage + meridCritDamage
+    player.attack = Math.floor((baseAttack + bonusAttack + buffAttack + permAttack + equipAttack + meridAttack + achvAttack + resonAttack) * (1 + (equipmentBonus?.attack || 0)))
+    player.defense = Math.floor((baseDefense + bonusDefense + buffDefense + permDefense + equipDefense + meridDefense + achvDefense + resonDefense) * (1 + (equipmentBonus?.defense || 0)))
+    player.critRate = equipCritRate + meridCritRate + resonCritRate
+    player.critDamage = 0.5 + equipCritDamage + meridCritDamage + resonCritDamage
 
     if (player.health > player.maxHealth) player.health = player.maxHealth
     if (player.mana > player.maxMana) player.mana = player.maxMana

@@ -1,11 +1,12 @@
 import Phaser from 'phaser'
-import type { Player, Treasure } from '../types'
+import type { Player, Treasure, ActiveResonance } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { EquipmentManager } from '../managers/EquipmentManager'
 import { MeridianManager } from '../managers/MeridianManager'
 import { AchievementManager } from '../managers/AchievementManager'
 import { ELEMENT_INFO, getTreasureElementBonusText, getTreasureElementLabel, calculateTreasureElementBonus } from '../data/fiveElementsData'
+import { calculateTreasureResonance, getResonanceRarityColor, getResonanceRarityLabel, RESONANCES } from '../data/resonanceData'
 
 export class TreasureScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -17,8 +18,13 @@ export class TreasureScene extends Phaser.Scene {
   private detailPanel!: Phaser.GameObjects.Container
   private playerStatsText!: Phaser.GameObjects.Text
   private elementBonusText!: Phaser.GameObjects.Text
+  private resonanceSummaryText!: Phaser.GameObjects.Text
   private goldText!: Phaser.GameObjects.Text
   private spiritText!: Phaser.GameObjects.Text
+  private resonancePanel!: Phaser.GameObjects.Container
+  private resonanceCards: Phaser.GameObjects.Container[] = []
+  private resonanceGlowEffects: Phaser.GameObjects.Graphics[] = []
+  private activeResonances: ActiveResonance[] = []
 
   constructor() {
     super({ key: 'TreasureScene' })
@@ -74,10 +80,20 @@ export class TreasureScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5)
 
+    this.resonanceSummaryText = this.add.text(width / 2, 142, '', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '14px',
+      color: '#ffd54f',
+      align: 'center'
+    }).setOrigin(0.5)
+
+    this.updateResonanceData()
     this.updateResourceTexts()
     this.createTreasureCards(width, height)
+    this.createResonancePanel(width, height)
     this.createDetailPanel(width, height)
     this.createBackButton(width, height)
+    this.playResonanceActivationEffects()
 
     this.cameras.main.fadeIn(500)
   }
@@ -200,6 +216,30 @@ export class TreasureScene extends Phaser.Scene {
 
     const allChildren: Phaser.GameObjects.GameObject[] = [bg, iconBg]
     if (elRing) allChildren.push(elRing)
+
+    const isInResonance = this.activeResonances.some(ar =>
+      ar.activatedTreasures.some(t => t.id === treasure.id)
+    )
+
+    let resonanceGlow: Phaser.GameObjects.Graphics | null = null
+    if (isInResonance) {
+      resonanceGlow = this.add.graphics()
+      resonanceGlow.lineStyle(4, 0xffd54f, 0)
+      this.roundedRect(resonanceGlow, -width / 2 - 4, -height / 2 - 4, width + 8, height + 8, 14)
+      resonanceGlow.setAlpha(0)
+      allChildren.unshift(resonanceGlow)
+
+      this.tweens.add({
+        targets: resonanceGlow,
+        alpha: { from: 0.3, to: 0.8 },
+        duration: 2000,
+        delay: 500 + Math.random() * 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      })
+    }
+
     allChildren.push(icon, name, levelText, bonusText)
     if (elementText) allChildren.push(elementText)
     container.add(allChildren)
@@ -350,6 +390,41 @@ export class TreasureScene extends Phaser.Scene {
       elementStatText.push(elDesc)
     }
 
+    const treasureResonances = this.activeResonances.filter(ar =>
+      ar.activatedTreasures.some(tr => tr.id === t.id)
+    )
+
+    let resonanceY = t.element && t.element !== 'none' ? 68 : 44
+    const resonanceTexts: Phaser.GameObjects.GameObject[] = []
+
+    if (treasureResonances.length > 0) {
+      const resonanceLabel = this.add.text(-panelWidth / 2 + 130, resonanceY,
+        `✨ 已激活共鸣 (${treasureResonances.length}个):`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '13px',
+          color: '#ffd54f',
+          fontStyle: 'bold'
+        }
+      )
+      resonanceTexts.push(resonanceLabel)
+      resonanceY += 22
+
+      treasureResonances.forEach((ar) => {
+        const rarityColor = getResonanceRarityColor(ar.resonance.rarity)
+        const resText = this.add.text(-panelWidth / 2 + 140, resonanceY,
+          `${ar.resonance.icon} ${ar.resonance.name}  [${getResonanceRarityLabel(ar.resonance.rarity)}]`,
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '12px',
+            color: '#' + rarityColor.toString(16).padStart(6, '0')
+          }
+        )
+        resonanceTexts.push(resText)
+        resonanceY += 18
+      })
+    }
+
     if (!isMax) {
       const upgradeBtn = this.createUpgradeButton(panelWidth / 2 - 85, 55, t)
       this.detailPanel.add(upgradeBtn)
@@ -367,6 +442,7 @@ export class TreasureScene extends Phaser.Scene {
     if (elRingPanel) panelChildren.push(elRingPanel)
     panelChildren.push(icon, name, desc, stats)
     elementStatText.forEach((et) => panelChildren.push(et))
+    resonanceTexts.forEach((rt) => panelChildren.push(rt))
     this.detailPanel.add(panelChildren)
   }
 
@@ -429,7 +505,230 @@ export class TreasureScene extends Phaser.Scene {
 
     this.updateResourceTexts()
     this.refreshCards()
+    this.refreshResonancePanel()
     this.updateDetailPanel()
+  }
+
+  private updateResonanceData(): void {
+    const result = calculateTreasureResonance(this.player.treasures)
+    this.activeResonances = result.activeResonances
+  }
+
+  private createResonancePanel(width: number, height: number): void {
+    this.resonancePanel = this.add.container(width / 2, height * 0.58)
+
+    const panelWidth = 700
+    const panelHeight = 110
+
+    const bg = this.add.graphics()
+    bg.fillStyle(0x000000, 0.75)
+    bg.lineStyle(2, 0xffd54f, 0.5)
+    this.roundedRect(bg, -panelWidth / 2, -panelHeight / 2, panelWidth, panelHeight, 12)
+
+    const title = this.add.text(-panelWidth / 2 + 15, -panelHeight / 2 + 10, '✨ 法宝共鸣', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '16px',
+      color: '#ffd54f',
+      fontStyle: 'bold'
+    })
+
+    this.resonancePanel.add([bg, title])
+    this.resonancePanel.setSize(panelWidth, panelHeight)
+
+    this.createResonanceCards(panelWidth, panelHeight)
+  }
+
+  private createResonanceCards(panelWidth: number, panelHeight: number): void {
+    this.resonanceCards.forEach(card => card.destroy())
+    this.resonanceCards = []
+    this.resonanceGlowEffects.forEach(g => g.destroy())
+    this.resonanceGlowEffects = []
+
+    const cardWidth = 130
+    const cardHeight = 60
+    const spacing = 12
+    const startX = -panelWidth / 2 + 15 + cardWidth / 2
+    const startY = 5
+
+    if (this.activeResonances.length === 0) {
+      const hint = this.add.text(0, 5, '暂无激活的共鸣，收集更多法宝或升级五行属性来激活共鸣效果！', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '13px',
+        color: '#78909c',
+        align: 'center',
+        wordWrap: { width: panelWidth - 40 }
+      }).setOrigin(0.5)
+      this.resonancePanel.add(hint)
+      return
+    }
+
+    this.activeResonances.forEach((activeRes, index) => {
+      const x = startX + index * (cardWidth + spacing)
+      const card = this.createResonanceCard(x, startY, cardWidth, cardHeight, activeRes, index)
+      this.resonanceCards.push(card)
+      this.resonancePanel.add(card)
+    })
+  }
+
+  private createResonanceCard(x: number, y: number, width: number, height: number, activeRes: ActiveResonance, index: number): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y)
+    const resonance = activeRes.resonance
+    const rarityColor = getResonanceRarityColor(resonance.rarity)
+
+    const glow = this.add.graphics()
+    glow.fillStyle(resonance.color, 0.15)
+    this.roundedRect(glow, -width / 2 - 3, -height / 2 - 3, width + 6, height + 6, 10)
+    glow.setAlpha(0.3)
+    this.resonanceGlowEffects.push(glow)
+    container.add(glow)
+
+    const bg = this.add.graphics()
+    bg.fillStyle(0x0d1117, 0.9)
+    bg.lineStyle(2, rarityColor, 0.9)
+    this.roundedRect(bg, -width / 2, -height / 2, width, height, 8)
+
+    const icon = this.add.text(-width / 2 + 20, -height / 2 + 15, resonance.icon, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '24px',
+      color: '#' + resonance.color.toString(16).padStart(6, '0')
+    }).setOrigin(0.5)
+
+    const name = this.add.text(-width / 2 + 45, -height / 2 + 8, resonance.name, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '14px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    })
+
+    const rarityLabel = this.add.text(width / 2 - 20, -height / 2 + 8, getResonanceRarityLabel(resonance.rarity), {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '10px',
+      color: '#' + rarityColor.toString(16).padStart(6, '0')
+    }).setOrigin(1, 0)
+
+    const bonusParts: string[] = []
+    if (resonance.bonus.attack) bonusParts.push(`攻+${resonance.bonus.attack}`)
+    if (resonance.bonus.defense) bonusParts.push(`防+${resonance.bonus.defense}`)
+    if (resonance.bonus.maxHealth) bonusParts.push(`血+${resonance.bonus.maxHealth}`)
+    if (resonance.bonus.critRate) bonusParts.push(`暴+${Math.round(resonance.bonus.critRate * 100)}%`)
+    if (resonance.bonus.critDamage) bonusParts.push(`暴伤+${Math.round(resonance.bonus.critDamage * 100)}%`)
+
+    const bonusText = this.add.text(-width / 2 + 10, -height / 2 + 32, bonusParts.join(' '), {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '11px',
+      color: '#81c784'
+    })
+
+    container.add([bg, icon, name, rarityLabel, bonusText])
+    container.setSize(width, height)
+    container.setInteractive({ useHandCursor: true })
+
+    container.on('pointerover', () => {
+      this.tweens.add({ targets: container, scale: 1.08, duration: 150 })
+      this.showResonanceTooltip(resonance, container)
+    })
+
+    container.on('pointerout', () => {
+      this.tweens.add({ targets: container, scale: 1, duration: 150 })
+      this.hideResonanceTooltip()
+    })
+
+    container.setAlpha(0)
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: 500,
+      delay: 400 + index * 200,
+      ease: 'Back.easeOut'
+    })
+
+    return container
+  }
+
+  private showResonanceTooltip(resonance: any, targetCard: Phaser.GameObjects.Container): void {
+    const tooltip = this.add.container(targetCard.x + this.resonancePanel.x, targetCard.y + this.resonancePanel.y - 80)
+
+    const width = 260
+    const height = 100
+
+    const bg = this.add.graphics()
+    bg.fillStyle(0x0d1117, 0.95)
+    bg.lineStyle(2, resonance.color, 0.9)
+    this.roundedRect(bg, -width / 2, -height / 2, width, height, 8)
+
+    const name = this.add.text(-width / 2 + 12, -height / 2 + 12, `${resonance.icon} ${resonance.name}`, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '16px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    })
+
+    const rarityColor = getResonanceRarityColor(resonance.rarity)
+    const rarityLabel = this.add.text(width / 2 - 12, -height / 2 + 14, getResonanceRarityLabel(resonance.rarity), {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '11px',
+      color: '#' + rarityColor.toString(16).padStart(6, '0')
+    }).setOrigin(1, 0)
+
+    const desc = this.add.text(-width / 2 + 12, -height / 2 + 35, resonance.description, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '12px',
+      color: '#b0bec5',
+      wordWrap: { width: width - 24 }
+    })
+
+    const bonusParts: string[] = []
+    if (resonance.bonus.attack) bonusParts.push(`攻击 +${resonance.bonus.attack}`)
+    if (resonance.bonus.defense) bonusParts.push(`防御 +${resonance.bonus.defense}`)
+    if (resonance.bonus.maxHealth) bonusParts.push(`生命 +${resonance.bonus.maxHealth}`)
+    if (resonance.bonus.critRate) bonusParts.push(`暴击率 +${Math.round(resonance.bonus.critRate * 100)}%`)
+    if (resonance.bonus.critDamage) bonusParts.push(`暴击伤害 +${Math.round(resonance.bonus.critDamage * 100)}%`)
+
+    const bonusText = this.add.text(-width / 2 + 12, height / 2 - 18, '✨ ' + bonusParts.join('  '), {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '12px',
+      color: '#81c784'
+    })
+
+    tooltip.add([bg, name, rarityLabel, desc, bonusText])
+    tooltip.setName('resonanceTooltip')
+    this.children.bringToTop(tooltip)
+  }
+
+  private hideResonanceTooltip(): void {
+    const tooltip = this.children.getByName('resonanceTooltip')
+    if (tooltip) {
+      tooltip.destroy()
+    }
+  }
+
+  private playResonanceActivationEffects(): void {
+    if (this.activeResonances.length === 0) return
+
+    this.resonanceGlowEffects.forEach((glow, index) => {
+      this.tweens.add({
+        targets: glow,
+        alpha: { from: 0.2, to: 0.6 },
+        duration: 1500,
+        delay: 800 + index * 300,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      })
+    })
+  }
+
+  private refreshResonancePanel(): void {
+    const oldResonanceCount = this.activeResonances.length
+    this.updateResonanceData()
+    const newCount = this.activeResonances.length
+
+    this.createResonanceCards(this.resonancePanel.width, this.resonancePanel.height)
+
+    if (newCount > oldResonanceCount) {
+      this.cameras.main.flash(400, 255, 215, 0)
+      this.time.delayedCall(300, () => this.playResonanceActivationEffects())
+    }
   }
 
   private refreshCards(): void {
@@ -459,6 +758,19 @@ export class TreasureScene extends Phaser.Scene {
       this.elementBonusText.setText('☯ 五行法宝加成：' + parts.join('   '))
     } else {
       this.elementBonusText.setText('')
+    }
+
+    if (this.activeResonances.length > 0) {
+      const totalBonus = calculateTreasureResonance(this.player.treasures).totalBonus
+      const bonusParts: string[] = []
+      if (totalBonus.attack) bonusParts.push(`攻击+${totalBonus.attack}`)
+      if (totalBonus.defense) bonusParts.push(`防御+${totalBonus.defense}`)
+      if (totalBonus.maxHealth) bonusParts.push(`生命+${totalBonus.maxHealth}`)
+      if (totalBonus.critRate) bonusParts.push(`暴击+${Math.round(totalBonus.critRate * 100)}%`)
+      if (totalBonus.critDamage) bonusParts.push(`暴伤+${Math.round(totalBonus.critDamage * 100)}%`)
+      this.resonanceSummaryText.setText(`✨ 已激活 ${this.activeResonances.length} 个共鸣 | ${bonusParts.join('  ')}`)
+    } else {
+      this.resonanceSummaryText.setText('')
     }
   }
 
