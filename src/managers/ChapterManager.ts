@@ -537,7 +537,7 @@ export class ChapterManager {
     return this.isChapterCompleted(save, chapterId)
   }
 
-  sweepLevel(save: GameSave, chapterId: string, levelId: string): SweepResult {
+  sweepLevel(save: GameSave, chapterId: string, levelId: string, autoSave: boolean = true): SweepResult {
     if (!this.canSweepLevel(save, chapterId, levelId)) {
       return {
         success: false,
@@ -577,25 +577,17 @@ export class ChapterManager {
     }
 
     const rewards: ChapterReward[] = []
-    let totalExp = 0
+    const previousLevel = save.player.level
 
     level.rewards.forEach(reward => {
-      if (reward.type === 'exp') {
-        totalExp += reward.value
-      }
       const applied = this.applyReward(save, reward)
       if (applied) {
         rewards.push(applied)
       }
     })
 
-    let leveledUp = false
-    let levelsGained = 0
-    if (totalExp > 0) {
-      const expResult = SaveManager.getInstance().addExp(save.player, totalExp)
-      leveledUp = expResult.leveledUp
-      levelsGained = expResult.levels
-    }
+    const leveledUp = save.player.level > previousLevel
+    const levelsGained = save.player.level - previousLevel
 
     SaveManager.getInstance().recalcPlayerStatsFromSave(save)
 
@@ -604,7 +596,9 @@ export class ChapterManager {
       save.player.mana = save.player.maxMana
     }
 
-    SaveManager.getInstance().saveGame(save)
+    if (autoSave) {
+      SaveManager.getInstance().saveGame(save)
+    }
 
     return {
       success: true,
@@ -646,13 +640,12 @@ export class ChapterManager {
 
     const sweepResults: SweepResult[] = []
     const totalRewardsMap = new Map<string, number>()
-    let totalLeveledUp = false
-    let totalLevelsGained = 0
     let sweepCount = 0
+    const previousLevel = save.player.level
 
     chapter.levels.forEach(level => {
       if (this.canSweepLevel(save, chapterId, level.id)) {
-        const result = this.sweepLevel(save, chapterId, level.id)
+        const result = this.sweepLevel(save, chapterId, level.id, false)
         if (result.success) {
           sweepResults.push(result)
           sweepCount++
@@ -662,11 +655,6 @@ export class ChapterManager {
             const current = totalRewardsMap.get(key) || 0
             totalRewardsMap.set(key, current + reward.value)
           })
-
-          if (result.leveledUp) {
-            totalLeveledUp = true
-            totalLevelsGained += result.levelsGained
-          }
         }
       }
     })
@@ -678,6 +666,9 @@ export class ChapterManager {
         value
       })
     })
+
+    const totalLeveledUp = save.player.level > previousLevel
+    const totalLevelsGained = save.player.level - previousLevel
 
     SaveManager.getInstance().saveGame(save)
 
@@ -723,14 +714,13 @@ export class ChapterManager {
 
     const sweepResults: SweepResult[] = []
     const totalRewardsMap = new Map<string, number>()
-    let totalLeveledUp = false
-    let totalLevelsGained = 0
     let totalSweepCount = 0
+    const previousLevel = save.player.level
 
     for (let t = 0; t < times; t++) {
       chapter.levels.forEach(level => {
         if (this.canSweepLevel(save, chapterId, level.id)) {
-          const result = this.sweepLevel(save, chapterId, level.id)
+          const result = this.sweepLevel(save, chapterId, level.id, false)
           if (result.success) {
             sweepResults.push(result)
             totalSweepCount++
@@ -740,11 +730,6 @@ export class ChapterManager {
               const current = totalRewardsMap.get(key) || 0
               totalRewardsMap.set(key, current + reward.value)
             })
-
-            if (result.leveledUp) {
-              totalLeveledUp = true
-              totalLevelsGained += result.levelsGained
-            }
           }
         }
       })
@@ -757,6 +742,9 @@ export class ChapterManager {
         value
       })
     })
+
+    const totalLeveledUp = save.player.level > previousLevel
+    const totalLevelsGained = save.player.level - previousLevel
 
     SaveManager.getInstance().saveGame(save)
 
