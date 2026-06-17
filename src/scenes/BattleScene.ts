@@ -1466,9 +1466,14 @@ export class BattleScene extends Phaser.Scene {
 
     if (this.isChapterBattle && this.chapterId && this.levelId) {
       victoryDialogueNode = this.chapterManager.getVictoryDialogueNodeForLevel(save, this.chapterId, this.levelId)
-      shouldShowClosingStory = this.chapterManager.shouldShowClosingStory(save, this.chapterId)
-      chapterRewards = this.chapterManager.completeLevel(save, this.chapterId, this.levelId, shouldShowClosingStory)
-      shouldShowReview = this.chapterManager.isChapterCompleted(save, this.chapterId)
+      
+      if (victoryDialogueNode) {
+        chapterRewards = this.chapterManager.completeLevel(save, this.chapterId, this.levelId, true)
+      } else {
+        shouldShowClosingStory = this.chapterManager.shouldShowClosingStory(save, this.chapterId)
+        chapterRewards = this.chapterManager.completeLevel(save, this.chapterId, this.levelId, shouldShowClosingStory)
+        shouldShowReview = this.chapterManager.isChapterCompleted(save, this.chapterId)
+      }
     }
 
     this.saveManager.saveGame(save)
@@ -1484,6 +1489,7 @@ export class BattleScene extends Phaser.Scene {
           if (victoryDialogueNode) {
             this.scene.start('StoryScene', {
               chapterId: this.chapterId,
+              levelId: this.levelId,
               isVictoryStory: true,
               victoryDialogueNodeId: victoryDialogueNode.id,
               battleResult: result,

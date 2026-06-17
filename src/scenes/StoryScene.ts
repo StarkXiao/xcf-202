@@ -22,6 +22,7 @@ export class StoryScene extends Phaser.Scene {
   private chapterRewards?: ChapterReward[]
   private leveledUp = false
   private levelsGained = 0
+  private victoryRewards?: ChapterReward[]
   
   private dialoguePanel!: Phaser.GameObjects.Graphics
   private speakerName!: Phaser.GameObjects.Text
@@ -60,6 +61,7 @@ export class StoryScene extends Phaser.Scene {
     chapterRewards?: ChapterReward[]
     leveledUp?: boolean
     levels?: number
+    victoryRewards?: ChapterReward[]
   }): void {
     const existingSave = this.saveManager.loadGame()
     this.save = existingSave || this.saveManager.createNewSave()
@@ -76,6 +78,7 @@ export class StoryScene extends Phaser.Scene {
     this.chapterRewards = data.chapterRewards
     this.leveledUp = data.leveledUp || false
     this.levelsGained = data.levels || 0
+    this.victoryRewards = data.victoryRewards
     
     const chapter = getChapterById(this.chapterId)
     
@@ -461,7 +464,13 @@ export class StoryScene extends Phaser.Scene {
         }
         
         const chapter = getChapterById(this.chapterId)
-        const shouldShowClosingStory = this.chapterManager.shouldShowClosingStory(this.save, this.chapterId)
+        const state = this.chapterManager.getChapterState(this.save, this.chapterId)
+        const rewardKey = `${this.chapterId}_completion`
+        const allLevelsCompleted = state.completedLevelIds.length >= (chapter?.levels.length || 0)
+        const hasClosingStory = chapter?.closingStory && chapter.closingStory.length > 0
+        const closingStoryNotPlayed = !this.save.chapter?.claimedRewards.includes(rewardKey)
+        const shouldShowClosingStory = allLevelsCompleted && hasClosingStory && closingStoryNotPlayed
+        
         const shouldShowReview = this.chapterManager.isChapterCompleted(this.save, this.chapterId)
         
         const allRewards = [...(this.chapterRewards || []), ...rewards]
@@ -469,11 +478,17 @@ export class StoryScene extends Phaser.Scene {
         if (shouldShowClosingStory) {
           this.scene.start('StoryScene', {
             chapterId: this.chapterId,
-            isClosingStory: true
+            isClosingStory: true,
+            victoryRewards: allRewards,
+            battleResult: this.battleResult,
+            leveledUp: this.leveledUp,
+            levels: this.levelsGained
           })
         } else if (shouldShowReview) {
+          const reviewData = this.chapterManager.createChapterReviewData(this.save, this.chapterId, allRewards)
           this.scene.start('ChapterReviewScene', {
-            chapterId: this.chapterId
+            chapterId: this.chapterId,
+            reviewData
           })
         } else if (this.battleResult) {
           this.scene.start('ResultScene', {
@@ -505,7 +520,23 @@ export class StoryScene extends Phaser.Scene {
       
       if (this.isClosingStory) {
         const chapterRewards = this.chapterManager.completeChapter(this.save, this.chapterId)
-        const reviewData = this.chapterManager.createChapterReviewData(this.save, this.chapterId, chapterRewards)
+        
+        const combinedRewards = [...(this.victoryRewards || []), ...chapterRewards]
+        
+        if (this.battleResult) {
+          this.scene.start('ResultScene', {
+            result: this.battleResult,
+            chapterRewards: combinedRewards,
+            leveledUp: this.leveledUp,
+            levels: this.levelsGained,
+            fromChapterVictory: true,
+            chapterId: this.chapterId,
+            showChapterReviewAfter: true
+          })
+          return
+        }
+        
+        const reviewData = this.chapterManager.createChapterReviewData(this.save, this.chapterId, combinedRewards)
         if (reviewData) {
           this.scene.start('ChapterReviewScene', { chapterId: this.chapterId, reviewData })
           return

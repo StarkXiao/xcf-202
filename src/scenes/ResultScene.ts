@@ -16,18 +16,20 @@ export class ResultScene extends Phaser.Scene {
   private chapterRewards: ChapterReward[] = []
   private fromChapterVictory = false
   private chapterId?: string
+  private showChapterReviewAfter = false
 
   constructor() {
     super({ key: 'ResultScene' })
   }
 
-  init(data: { result: BattleResult; leveledUp: boolean; levels: number; chapterRewards?: ChapterReward[]; fromChapterVictory?: boolean; chapterId?: string }): void {
+  init(data: { result: BattleResult; leveledUp: boolean; levels: number; chapterRewards?: ChapterReward[]; fromChapterVictory?: boolean; chapterId?: string; showChapterReviewAfter?: boolean }): void {
     this.result = data.result
     this.leveledUp = data.leveledUp
     this.levels = data.levels
     this.chapterRewards = data.chapterRewards || []
     this.fromChapterVictory = data.fromChapterVictory || false
     this.chapterId = data.chapterId
+    this.showChapterReviewAfter = data.showChapterReviewAfter || false
     const save = this.saveManager.loadGame()!
     this.player = save.player
 
@@ -563,9 +565,16 @@ export class ResultScene extends Phaser.Scene {
 
   private createButtons(x: number, y: number): void {
     const spacing = 140
+    let nextLabel = '下一关'
+    if (this.showChapterReviewAfter) {
+      nextLabel = '章节回顾'
+    } else if (this.fromChapterVictory) {
+      nextLabel = '返回地图'
+    }
+    
     const buttons = this.result.victory
       ? [
-          { label: this.fromChapterVictory ? '返回地图' : '下一关', color: 0x4fc3f7, action: () => this.nextStage() },
+          { label: nextLabel, color: 0x4fc3f7, action: () => this.nextStage() },
           { label: '返回主菜单', color: 0x78909c, action: () => this.goToMenu() }
         ]
       : [
@@ -648,7 +657,9 @@ export class ResultScene extends Phaser.Scene {
   private nextStage(): void {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
-      if (this.fromChapterVictory && this.chapterId) {
+      if (this.showChapterReviewAfter && this.chapterId) {
+        this.scene.start('ChapterReviewScene', { chapterId: this.chapterId })
+      } else if (this.fromChapterVictory && this.chapterId) {
         this.scene.start('ChapterMapScene', { chapterId: this.chapterId })
       } else {
         const nextStageId = Math.min(this.result.stageId + 1, STAGES.length)
