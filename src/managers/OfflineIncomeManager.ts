@@ -160,15 +160,15 @@ export class OfflineIncomeManager {
     return { gold: 50, spirit: 5, exp: 40 }
   }
 
-  applyOfflineIncome(save: GameSave, result: OfflineIncomeResult): void {
+  applyOfflineIncome(save: GameSave, result: OfflineIncomeResult): { leveledUp: boolean; levels: number } {
     if (result.isAbnormal) {
-      return
+      return { leveledUp: false, levels: 0 }
     }
 
     save.player.gold += result.income.gold
     save.player.spirit += result.income.spirit
 
-    this.addExp(save.player, result.income.exp)
+    const { leveledUp, levels } = this.addExp(save.player, result.income.exp)
 
     if (!save.offlineIncome) {
       save.offlineIncome = this.createInitialOfflineIncomeData()
@@ -179,6 +179,8 @@ export class OfflineIncomeManager {
     save.offlineIncome.totalGoldEarned += result.income.gold
     save.offlineIncome.totalSpiritEarned += result.income.spirit
     save.offlineIncome.totalExpEarned += result.income.exp
+
+    return { leveledUp, levels }
   }
 
   private addExp(player: GameSave['player'], exp: number): { leveledUp: boolean; levels: number } {
@@ -195,16 +197,8 @@ export class OfflineIncomeManager {
     }
 
     if (leveledUp) {
-      const baseHealth = 100 + (player.level - 1) * 20
-      const baseAttack = 20 + (player.level - 1) * 5
-      const baseDefense = 10 + (player.level - 1) * 3
-
-      player.maxHealth = baseHealth
-      player.maxMana = Math.floor(50 + (player.level - 1) * 10)
-      player.attack = baseAttack
-      player.defense = baseDefense
-      player.health = player.maxHealth
-      player.mana = player.maxMana
+      player.health = 0
+      player.mana = 0
       player.skills.forEach((s: any) => {
         s.currentCooldown = 0
       })

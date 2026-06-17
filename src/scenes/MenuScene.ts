@@ -30,7 +30,6 @@ export class MenuScene extends Phaser.Scene {
 
     if (existingSave) {
       this.pendingOfflineIncome = this.saveManager.settleOfflineIncome(this.save)
-      this.saveManager.recalcPlayerStatsFromSave(this.save)
     }
   }
 
@@ -73,9 +72,35 @@ export class MenuScene extends Phaser.Scene {
       delay: 500
     })
 
+    if (this.pendingOfflineIncome?.isAbnormal) {
+      const abnormalWarning = this.add.text(width / 2, height * 0.34,
+        `⚠ ${this.pendingOfflineIncome.abnormalReason || '离线数据异常'}`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '16px',
+          color: '#ef5350'
+        }).setOrigin(0.5).setAlpha(0)
+
+      this.tweens.add({
+        targets: abnormalWarning,
+        alpha: { from: 0, to: 1 },
+        duration: 1500,
+        delay: 800
+      })
+
+      this.tweens.add({
+        targets: abnormalWarning,
+        alpha: { from: 0.6, to: 1 },
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+        delay: 2300
+      })
+    }
+
     this.createMenuButtons(width, height)
 
-    if (this.pendingOfflineIncome && this.pendingOfflineIncome.hasIncome) {
+    if (this.pendingOfflineIncome && (this.pendingOfflineIncome.hasIncome || this.pendingOfflineIncome.isAbnormal)) {
       this.time.delayedCall(800, () => {
         this.showOfflineIncomePopup(this.pendingOfflineIncome!)
       })
@@ -398,116 +423,172 @@ export class MenuScene extends Phaser.Scene {
     const panelWidth = 480
     const rewardLabels: { icon: string; label: string; value: number; color: string }[] = []
 
-    if (result.playerIncome.gold > 0) {
-      rewardLabels.push({ icon: '💰', label: '金币', value: result.playerIncome.gold, color: '#ffd54f' })
-    }
-    if (result.playerIncome.spirit > 0) {
-      rewardLabels.push({ icon: '✨', label: '灵气', value: result.playerIncome.spirit, color: '#4fc3f7' })
-    }
-    if (result.playerIncome.exp > 0) {
-      rewardLabels.push({ icon: '📚', label: '经验', value: result.playerIncome.exp, color: '#81c784' })
+    if (result.isAbnormal) {
+      rewardLabels.push({ icon: '❌', label: '异常状态', value: 0, color: '#ef5350' })
+    } else {
+      if (result.playerIncome.gold > 0) {
+        rewardLabels.push({ icon: '💰', label: '金币', value: result.playerIncome.gold, color: '#ffd54f' })
+      }
+      if (result.playerIncome.spirit > 0) {
+        rewardLabels.push({ icon: '✨', label: '灵气', value: result.playerIncome.spirit, color: '#4fc3f7' })
+      }
+      if (result.playerIncome.exp > 0) {
+        rewardLabels.push({ icon: '📚', label: '经验', value: result.playerIncome.exp, color: '#81c784' })
+      }
+
+      const sectResources = result.sectResources as any
+      if (sectResources) {
+        if (sectResources.gold && sectResources.gold > 0) {
+          rewardLabels.push({ icon: '🏛️', label: '宗门金币', value: sectResources.gold, color: '#ffd54f' })
+        }
+        if (sectResources.spirit && sectResources.spirit > 0) {
+          rewardLabels.push({ icon: '🏛️', label: '宗门灵气', value: sectResources.spirit, color: '#4fc3f7' })
+        }
+        if (sectResources.stone && sectResources.stone > 0) {
+          rewardLabels.push({ icon: '🪨', label: '石料', value: sectResources.stone, color: '#90a4ae' })
+        }
+        if (sectResources.wood && sectResources.wood > 0) {
+          rewardLabels.push({ icon: '🪵', label: '木材', value: sectResources.wood, color: '#8d6e63' })
+        }
+        if (sectResources.herb && sectResources.herb > 0) {
+          rewardLabels.push({ icon: '🌿', label: '草药', value: sectResources.herb, color: '#66bb6a' })
+        }
+      }
     }
 
-    const sectResources = result.sectResources as any
-    if (sectResources) {
-      if (sectResources.gold && sectResources.gold > 0) {
-        rewardLabels.push({ icon: '🏛️', label: '宗门金币', value: sectResources.gold, color: '#ffd54f' })
-      }
-      if (sectResources.spirit && sectResources.spirit > 0) {
-        rewardLabels.push({ icon: '🏛️', label: '宗门灵气', value: sectResources.spirit, color: '#4fc3f7' })
-      }
-      if (sectResources.stone && sectResources.stone > 0) {
-        rewardLabels.push({ icon: '🪨', label: '石料', value: sectResources.stone, color: '#90a4ae' })
-      }
-      if (sectResources.wood && sectResources.wood > 0) {
-        rewardLabels.push({ icon: '🪵', label: '木材', value: sectResources.wood, color: '#8d6e63' })
-      }
-      if (sectResources.herb && sectResources.herb > 0) {
-        rewardLabels.push({ icon: '🌿', label: '草药', value: sectResources.herb, color: '#66bb6a' })
-      }
-    }
+    let extraHeight = 0
+    if (result.leveledUp) extraHeight += 50
+    if (result.isCapped) extraHeight += 40
+    if (result.isAbnormal && result.abnormalReason) extraHeight += 40
 
-    const extraHeight = (result.isCapped || (result.isAbnormal && result.abnormalReason)) ? 40 : 0
-    const panelHeight = 220 + rewardLabels.length * 45 + extraHeight
+    const baseHeight = result.isAbnormal ? 200 : 220
+    const panelHeight = baseHeight + rewardLabels.length * 45 + extraHeight
     const panelX = (width - panelWidth) / 2
     const panelY = (height - panelHeight) / 2
 
+    const borderColor = result.isAbnormal ? 0xef5350 : 0xffd54f
     const panel = this.add.graphics()
     panel.fillStyle(0x1a1a2e, 0.98)
-    panel.lineStyle(3, 0xffd54f, 0.9)
+    panel.lineStyle(3, borderColor, 0.9)
     this.roundedRect(panel, panelX, panelY, panelWidth, panelHeight, 20)
     objectsToDestroy.push(panel)
 
-    const title = this.add.text(width / 2, panelY + 45, '✨ 离线收益', {
+    const titleText = result.isAbnormal ? '⚠ 离线收益异常' : '✨ 离线收益'
+    const titleColor = result.isAbnormal ? '#ef5350' : '#ffd54f'
+    const title = this.add.text(width / 2, panelY + 45, titleText, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '32px',
-      color: '#ffd54f',
+      color: titleColor,
       fontStyle: 'bold'
     }).setOrigin(0.5)
     objectsToDestroy.push(title)
 
-    const timeText = this.add.text(width / 2, panelY + 90, 
-      `离线时长: ${this.offlineIncomeManager.formatTime(result.offlineSeconds)}`,
-      {
-        fontFamily: '"Microsoft YaHei", serif',
-        fontSize: '20px',
-        color: '#81c784'
-      }).setOrigin(0.5)
+    const timeTextContent = result.isAbnormal 
+      ? '离线收益结算失败' 
+      : `离线时长: ${this.offlineIncomeManager.formatTime(result.offlineSeconds)}`
+    const timeTextColor = result.isAbnormal ? '#ef5350' : '#81c784'
+    const timeText = this.add.text(width / 2, panelY + 90, timeTextContent, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '20px',
+      color: timeTextColor
+    }).setOrigin(0.5)
     objectsToDestroy.push(timeText)
 
     let yOffset = panelY + 140
 
-    rewardLabels.forEach((reward, index) => {
-      const rewardBg = this.add.graphics()
-      rewardBg.fillStyle(0x2d2d44, 0.6)
-      this.roundedRect(rewardBg, panelX + 40, yOffset + index * 45, panelWidth - 80, 38, 8)
-      objectsToDestroy.push(rewardBg)
+    if (result.isAbnormal && result.abnormalReason) {
+      const abnormalBg = this.add.graphics()
+      abnormalBg.fillStyle(0x2d1a1a, 0.8)
+      this.roundedRect(abnormalBg, panelX + 40, yOffset, panelWidth - 80, 60, 8)
+      objectsToDestroy.push(abnormalBg)
 
-      const labelText = this.add.text(panelX + 60, yOffset + index * 45 + 19, 
-        `${reward.icon} ${reward.label}`,
+      const abnormalLabel = this.add.text(panelX + 60, yOffset + 30, 
+        `⚠ ${result.abnormalReason}`,
         {
           fontFamily: '"Microsoft YaHei", serif',
           fontSize: '18px',
-          color: '#ffffff'
+          color: '#ef5350',
+          wordWrap: { width: panelWidth - 100, useAdvancedWrap: true }
         }).setOrigin(0, 0.5)
-      objectsToDestroy.push(labelText)
+      objectsToDestroy.push(abnormalLabel)
 
-      const valueText = this.add.text(panelX + panelWidth - 60, yOffset + index * 45 + 19, 
-        `+${reward.value}`,
-        {
-          fontFamily: '"Microsoft YaHei", serif',
-          fontSize: '20px',
-          color: reward.color,
-          fontStyle: 'bold'
-        }).setOrigin(1, 0.5)
-      objectsToDestroy.push(valueText)
-    })
+      yOffset += 70
 
-    const hintY = panelY + 140 + rewardLabels.length * 45 + 15
-    if (result.isCapped) {
-      const capText = this.add.text(width / 2, hintY, 
-        '⚠ 离线收益已达上限，及时上线领取哦~',
+      const tipText = this.add.text(width / 2, yOffset, 
+        '请检查系统时间是否正确，本次无离线收益',
         {
           fontFamily: '"Microsoft YaHei", serif',
           fontSize: '16px',
           color: '#ffb74d'
         }).setOrigin(0.5)
-      objectsToDestroy.push(capText)
-    }
+      objectsToDestroy.push(tipText)
 
-    if (result.isAbnormal && result.abnormalReason) {
-      const abnormalText = this.add.text(width / 2, hintY, 
-        `⚠ ${result.abnormalReason}`,
-        {
-          fontFamily: '"Microsoft YaHei", serif',
-          fontSize: '16px',
-          color: '#ef5350'
-        }).setOrigin(0.5)
-      objectsToDestroy.push(abnormalText)
+      yOffset += 30
+    } else {
+      rewardLabels.forEach((reward, index) => {
+        const rewardBg = this.add.graphics()
+        rewardBg.fillStyle(0x2d2d44, 0.6)
+        this.roundedRect(rewardBg, panelX + 40, yOffset + index * 45, panelWidth - 80, 38, 8)
+        objectsToDestroy.push(rewardBg)
+
+        const labelText = this.add.text(panelX + 60, yOffset + index * 45 + 19, 
+          `${reward.icon} ${reward.label}`,
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '18px',
+            color: '#ffffff'
+          }).setOrigin(0, 0.5)
+        objectsToDestroy.push(labelText)
+
+        const valueText = this.add.text(panelX + panelWidth - 60, yOffset + index * 45 + 19, 
+          `+${reward.value}`,
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '20px',
+            color: reward.color,
+            fontStyle: 'bold'
+          }).setOrigin(1, 0.5)
+        objectsToDestroy.push(valueText)
+      })
+
+      const hintY = panelY + 140 + rewardLabels.length * 45 + 15
+      let currentHintY = hintY
+
+      if (result.leveledUp) {
+        const levelUpBg = this.add.graphics()
+        levelUpBg.fillStyle(0x1a2e1a, 0.8)
+        this.roundedRect(levelUpBg, panelX + 40, currentHintY - 5, panelWidth - 80, 40, 8)
+        objectsToDestroy.push(levelUpBg)
+
+        const levelUpText = this.add.text(width / 2, currentHintY + 15, 
+          `🎉 恭喜！等级提升了 ${result.levelsGained} 级！`,
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '18px',
+            color: '#81c784',
+            fontStyle: 'bold'
+          }).setOrigin(0.5)
+        objectsToDestroy.push(levelUpText)
+
+        currentHintY += 45
+      }
+
+      if (result.isCapped) {
+        const capText = this.add.text(width / 2, currentHintY + 10, 
+          '⚠ 离线收益已达上限，及时上线领取哦~',
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '16px',
+            color: '#ffb74d'
+          }).setOrigin(0.5)
+        objectsToDestroy.push(capText)
+      }
     }
 
     const okBtnY = panelY + panelHeight - 60
-    const okBtn = this.createButton(width / 2, okBtnY, '领取奖励', 0xffd54f, () => {
+    const btnText = result.isAbnormal ? '知道了' : '领取奖励'
+    const btnColor = result.isAbnormal ? 0x78909c : 0xffd54f
+    const okBtn = this.createButton(width / 2, okBtnY, btnText, btnColor, () => {
       objectsToDestroy.forEach(obj => obj.destroy())
       okBtn.destroy()
       this.events.emit('offline:collected')

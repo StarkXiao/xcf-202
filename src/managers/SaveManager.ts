@@ -125,6 +125,8 @@ export class SaveManager {
     isAbnormal: boolean
     abnormalReason?: string
     isCapped: boolean
+    leveledUp: boolean
+    levelsGained: number
   } {
     const sectManager = SectManager.getInstance()
     const offlineIncomeManager = OfflineIncomeManager.getInstance()
@@ -139,12 +141,24 @@ export class SaveManager {
     const hasSectIncome = Object.values(sectResources).some(v => v && v > 0)
     const hasIncome = hasPlayerIncome || hasSectIncome
 
+    let leveledUp = false
+    let levelsGained = 0
+
     if (hasPlayerIncome && !playerResult.isAbnormal) {
-      offlineIncomeManager.applyOfflineIncome(save, playerResult)
+      const result = offlineIncomeManager.applyOfflineIncome(save, playerResult)
+      leveledUp = result.leveledUp
+      levelsGained = result.levels
     }
 
     if (hasSectIncome) {
       sectManager.collectResources(save.sect)
+    }
+
+    this.recalcPlayerStatsFromSave(save)
+
+    if (leveledUp) {
+      save.player.health = save.player.maxHealth
+      save.player.mana = save.player.maxMana
     }
 
     save.lastPlayTime = Date.now()
@@ -157,7 +171,9 @@ export class SaveManager {
       hasIncome,
       isAbnormal: playerResult.isAbnormal,
       abnormalReason: playerResult.abnormalReason,
-      isCapped: playerResult.isCapped
+      isCapped: playerResult.isCapped,
+      leveledUp,
+      levelsGained
     }
   }
 
