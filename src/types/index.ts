@@ -239,7 +239,22 @@ export interface BattleResult {
   }
   specialDrops?: EnemyDrop[]
   statistics?: BattleStatistics
+  reviveCount?: number
 }
+
+export interface ReviveConfig {
+  goldCost: number
+  spiritCost: number
+  healthRecoverPercent: number
+}
+
+export const REVIVE_CONFIGS: ReviveConfig[] = [
+  { goldCost: 200, spiritCost: 30, healthRecoverPercent: 0.8 },
+  { goldCost: 500, spiritCost: 80, healthRecoverPercent: 0.8 },
+  { goldCost: 1000, spiritCost: 150, healthRecoverPercent: 0.8 }
+]
+
+export const MAX_REVIVE_COUNT = 3
 
 export type ResourceType = 'gold' | 'spirit' | 'stone' | 'wood' | 'herb'
 export type DiscipleRarity = 'common' | 'rare' | 'epic' | 'legendary'

@@ -11,6 +11,7 @@ import { AchievementManager } from '../managers/AchievementManager'
 import { ChapterManager } from '../managers/ChapterManager'
 import { getBeastTemplate } from '../data/spiritBeastData'
 import { getElementMultiplier, getElementConstraintText, getElementLabel, ELEMENT_INFO, calculateTreasureElementBonus } from '../data/fiveElementsData'
+import { REVIVE_CONFIGS, MAX_REVIVE_COUNT } from '../types'
 
 export class BattleScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -50,6 +51,7 @@ export class BattleScene extends Phaser.Scene {
   private battleStats: BattleStatistics = { totalDamageDealt: 0, totalDamageTaken: 0, totalHealing: 0, critCount: 0, critTotal: 0, enemiesDefeated: 0, eliteDefeated: 0, bossDefeated: 0, phaseTransitions: [], turnsElapsed: 0, specialSkillUses: 0 }
   private enemySkillCooldowns: Map<string, number> = new Map()
   private phaseAnnouncement: Phaser.GameObjects.Container | null = null
+  private reviveCount: number = 0
 
   constructor() {
     super({ key: 'BattleScene' })
@@ -57,7 +59,7 @@ export class BattleScene extends Phaser.Scene {
 
   private alchemyManager = AlchemyManager.getInstance()
 
-  init(data: { stageId: number; chapterId?: string; levelId?: string }): void {
+  init(data: { stageId: number; chapterId?: string; levelId?: string; reviveCount?: number }): void {
     const save = this.saveManager.loadGame()!
     this.player = save.player
 
@@ -72,6 +74,7 @@ export class BattleScene extends Phaser.Scene {
     this.chapterId = data.chapterId
     this.levelId = data.levelId
     this.isChapterBattle = !!(data.chapterId && data.levelId)
+    this.reviveCount = data.reviveCount || 0
 
     const stageId = data.stageId || save.currentStage
     const stageIndex = Math.min(Math.max(0, stageId - 1), STAGES.length - 1)
@@ -1560,10 +1563,15 @@ export class BattleScene extends Phaser.Scene {
 
   private battleDefeat(): void {
     this.battleEnded = true
-    this.player.health = Math.floor(this.player.maxHealth * 0.5)
-    SkillSystem.fullRestore(this.player)
 
     const save = this.saveManager.loadGame()!
+
+    const canRevive = this.reviveCount < MAX_REVIVE_COUNT
+    if (!canRevive) {
+      this.player.health = Math.floor(this.player.maxHealth * 0.5)
+      SkillSystem.fullRestore(this.player)
+    }
+
     save.player = this.player
 
     this.battleBeasts.forEach((beast, index) => {
@@ -1587,13 +1595,14 @@ export class BattleScene extends Phaser.Scene {
       goldGained: 0,
       spiritGained: 0,
       playerHealth: this.player.health,
-      statistics: { ...this.battleStats }
+      statistics: { ...this.battleStats },
+      reviveCount: this.reviveCount
     }
 
     this.time.delayedCall(1500, () => {
       this.cameras.main.fadeOut(500)
       this.time.delayedCall(500, () => {
-        this.scene.start('ResultScene', { result, leveledUp: false, levels: 0 })
+        this.scene.start('ResultScene', { result, leveledUp: false, levels: 0, chapterId: this.chapterId, levelId: this.levelId, isChapterBattle: this.isChapterBattle })
       })
     })
   }

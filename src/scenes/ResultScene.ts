@@ -1,10 +1,12 @@
 import Phaser from 'phaser'
 import type { BattleResult, Player, EnemyDrop, ChapterReward } from '../types'
+import { REVIVE_CONFIGS, MAX_REVIVE_COUNT } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { ChapterManager } from '../managers/ChapterManager'
 import { STAGES } from '../data/gameData'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { getHerbById } from '../data/alchemyData'
+import { SkillSystem } from '../managers/SkillSystem'
 
 export class ResultScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -16,19 +18,23 @@ export class ResultScene extends Phaser.Scene {
   private chapterRewards: ChapterReward[] = []
   private fromChapterVictory = false
   private chapterId?: string
+  private levelId?: string
+  private isChapterBattle = false
   private showChapterReviewAfter = false
 
   constructor() {
     super({ key: 'ResultScene' })
   }
 
-  init(data: { result: BattleResult; leveledUp: boolean; levels: number; chapterRewards?: ChapterReward[]; fromChapterVictory?: boolean; chapterId?: string; showChapterReviewAfter?: boolean }): void {
+  init(data: { result: BattleResult; leveledUp: boolean; levels: number; chapterRewards?: ChapterReward[]; fromChapterVictory?: boolean; chapterId?: string; levelId?: string; isChapterBattle?: boolean; showChapterReviewAfter?: boolean }): void {
     this.result = data.result
     this.leveledUp = data.leveledUp
     this.levels = data.levels
     this.chapterRewards = data.chapterRewards || []
     this.fromChapterVictory = data.fromChapterVictory || false
     this.chapterId = data.chapterId
+    this.levelId = data.levelId
+    this.isChapterBattle = data.isChapterBattle || false
     this.showChapterReviewAfter = data.showChapterReviewAfter || false
     const save = this.saveManager.loadGame()!
     this.player = save.player
@@ -70,6 +76,7 @@ export class ResultScene extends Phaser.Scene {
     if (hasStats) panelHeight += 120
     if (hasPhaseTransitions) panelHeight += 60
     if (hasChapterRewards) panelHeight += 40 + this.chapterRewards.length * 35
+    if (!this.result.victory) panelHeight += 80
     panelHeight = Math.min(panelHeight, height - 100)
     const panelX = width / 2
     const panelY = height / 2
@@ -491,14 +498,50 @@ export class ResultScene extends Phaser.Scene {
     ]
 
     const tip = messages[Math.floor(Math.random() * messages.length)]
-    const tipText = this.add.text(x, y - 50, tip, {
+    const tipText = this.add.text(x, y - 80, tip, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '22px',
       color: '#b0bec5',
       align: 'center'
     }).setOrigin(0.5)
 
-    const recoverText = this.add.text(x, y + 10, '（生命值已恢复50%）', {
+    const reviveCount = this.result.reviveCount || 0
+    const canRevive = reviveCount < MAX_REVIVE_COUNT
+    let reviveInfoText = ''
+    let reviveInfoColor = '#81c784'
+
+    if (canRevive) {
+      const nextReviveIndex = reviveCount
+      const config = REVIVE_CONFIGS[Math.min(nextReviveIndex, REVIVE_CONFIGS.length - 1)]
+      const hasEnoughGold = this.player.gold >= config.goldCost
+      const hasEnoughSpirit = this.player.spirit >= config.spiritCost
+      const canAfford = hasEnoughGold && hasEnoughSpirit
+
+      if (canAfford) {
+        reviveInfoText = `复活消耗：💰${config.goldCost}  ✨${config.spiritCost}  |  恢复${Math.floor(config.healthRecoverPercent * 100)}%生命  |  剩余次数：${MAX_REVIVE_COUNT - reviveCount}/${MAX_REVIVE_COUNT}`
+      } else {
+        reviveInfoText = `复活消耗：💰${config.goldCost}  ✨${config.spiritCost}（资源不足） |  剩余次数：${MAX_REVIVE_COUNT - reviveCount}/${MAX_REVIVE_COUNT}`
+        reviveInfoColor = '#ef5350'
+      }
+    } else {
+      reviveInfoText = `复活次数已用完（${MAX_REVIVE_COUNT}/${MAX_REVIVE_COUNT}）`
+      reviveInfoColor = '#ef5350'
+    }
+
+    const reviveInfo = this.add.text(x, y - 30, reviveInfoText, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: reviveInfoColor,
+      align: 'center',
+      wordWrap: { width: 500, useAdvancedWrap: true }
+    }).setOrigin(0.5)
+
+    let recoverY = y + 15
+    let recoverTextContent = '（生命值已恢复50%）'
+    if (canRevive) {
+      recoverTextContent = '（选择复活重战或返回提升实力）'
+    }
+    const recoverText = this.add.text(x, recoverY, recoverTextContent, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '18px',
       color: '#81c784'
@@ -506,7 +549,7 @@ export class ResultScene extends Phaser.Scene {
 
     if (this.result.statistics && this.result.statistics.turnsElapsed > 0) {
       const stats = this.result.statistics
-      const statsText = this.add.text(x, y + 55,
+      const statsText = this.add.text(x, y + 60,
         `战斗统计: 回合${stats.turnsElapsed} | 伤害${stats.totalDamageDealt} | 承伤${stats.totalDamageTaken}`,
         {
           fontFamily: '"Microsoft YaHei", serif',
@@ -522,15 +565,16 @@ export class ResultScene extends Phaser.Scene {
       })
     }
 
-    const advice = this.add.text(x, y + 100,
-      '建议：前往【宗门经营】或【法宝养成】提升实力',
+    const adviceY = canRevive ? y + 105 : y + 100
+    const advice = this.add.text(x, adviceY,
+      canRevive ? '提示：复活后可直接继续本关战斗' : '建议：前往【宗门经营】或【法宝养成】提升实力',
       {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '20px',
         color: '#4fc3f7'
       }).setOrigin(0.5)
 
-    ;[tipText, recoverText, advice].forEach((text, i) => {
+    ;[tipText, reviveInfo, recoverText, advice].forEach((text, i) => {
       text.setAlpha(0)
       this.tweens.add({
         targets: text,
@@ -572,19 +616,43 @@ export class ResultScene extends Phaser.Scene {
       nextLabel = '返回地图'
     }
     
-    const buttons = this.result.victory
-      ? [
-          { label: nextLabel, color: 0x4fc3f7, action: () => this.nextStage() },
-          { label: '返回主菜单', color: 0x78909c, action: () => this.goToMenu() }
-        ]
-      : [
-          { label: '法宝养成', color: 0x81c784, action: () => this.goToTreasure() },
-          { label: '返回主菜单', color: 0x78909c, action: () => this.goToMenu() }
-        ]
+    let buttons: { label: string; color: number; action: () => void; enabled?: boolean }[]
+
+    if (this.result.victory) {
+      buttons = [
+        { label: nextLabel, color: 0x4fc3f7, action: () => this.nextStage() },
+        { label: '返回主菜单', color: 0x78909c, action: () => this.goToMenu() }
+      ]
+    } else {
+      const reviveCount = this.result.reviveCount || 0
+      const canRevive = reviveCount < MAX_REVIVE_COUNT
+      const nextReviveIndex = Math.min(reviveCount, REVIVE_CONFIGS.length - 1)
+      const config = REVIVE_CONFIGS[nextReviveIndex]
+      const hasEnoughGold = this.player.gold >= config.goldCost
+      const hasEnoughSpirit = this.player.spirit >= config.spiritCost
+      const canAffordRevive = canRevive && hasEnoughGold && hasEnoughSpirit
+
+      buttons = []
+      if (canRevive) {
+        buttons.push({
+          label: '💫 复活重战',
+          color: canAffordRevive ? 0xffd54f : 0x546e7a,
+          action: () => { if (canAffordRevive) this.reviveAndRetry() },
+          enabled: canAffordRevive
+        })
+      }
+      buttons.push(
+        { label: '法宝养成', color: 0x81c784, action: () => this.goToTreasure() },
+        { label: '返回主菜单', color: 0x78909c, action: () => this.goToMenu() }
+      )
+    }
+
+    const totalWidth = (buttons.length - 1) * spacing
+    const startX = x - totalWidth / 2
 
     buttons.forEach((btn, index) => {
-      const bx = x - spacing / 2 + index * spacing
-      const button = this.createGameButton(bx, y, btn.label, btn.color, btn.action)
+      const bx = startX + index * spacing
+      const button = this.createGameButton(bx, y, btn.label, btn.color, btn.action, btn.enabled === false ? false : true)
       button.setAlpha(0)
       this.tweens.add({
         targets: button,
@@ -597,43 +665,51 @@ export class ResultScene extends Phaser.Scene {
     })
   }
 
-  private createGameButton(x: number, y: number, label: string, color: number, action: () => void): Phaser.GameObjects.Container {
+  private createGameButton(x: number, y: number, label: string, color: number, action: () => void, enabled: boolean = true): Phaser.GameObjects.Container {
     const container = this.add.container(x, y)
     const width = 130
     const height = 50
 
     const bg = this.add.graphics()
-    bg.fillStyle(0x000000, 0.75)
-    bg.lineStyle(2, color, 1)
+    if (enabled) {
+      bg.fillStyle(0x000000, 0.75)
+      bg.lineStyle(2, color, 1)
+    } else {
+      bg.fillStyle(0x1a1a2e, 0.5)
+      bg.lineStyle(1, color, 0.4)
+    }
     this.roundedRect(bg, -width / 2, -height / 2, width, height, 10)
 
     const text = this.add.text(0, 0, label, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '22px',
-      color: '#ffffff'
+      color: enabled ? '#ffffff' : '#666666'
     }).setOrigin(0.5)
 
     container.add([bg, text])
     container.setSize(width, height)
-    container.setInteractive({ useHandCursor: true })
 
-    container.on('pointerover', () => {
-      this.tweens.add({ targets: container, scale: 1.08, duration: 150 })
-      bg.clear()
-      bg.fillStyle(color, 0.35)
-      bg.lineStyle(3, color, 1)
-      this.roundedRect(bg, -width / 2, -height / 2, width, height, 10)
-    })
+    if (enabled) {
+      container.setInteractive({ useHandCursor: true })
 
-    container.on('pointerout', () => {
-      this.tweens.add({ targets: container, scale: 1, duration: 150 })
-      bg.clear()
-      bg.fillStyle(0x000000, 0.75)
-      bg.lineStyle(2, color, 1)
-      this.roundedRect(bg, -width / 2, -height / 2, width, height, 10)
-    })
+      container.on('pointerover', () => {
+        this.tweens.add({ targets: container, scale: 1.08, duration: 150 })
+        bg.clear()
+        bg.fillStyle(color, 0.35)
+        bg.lineStyle(3, color, 1)
+        this.roundedRect(bg, -width / 2, -height / 2, width, height, 10)
+      })
 
-    container.on('pointerdown', action)
+      container.on('pointerout', () => {
+        this.tweens.add({ targets: container, scale: 1, duration: 150 })
+        bg.clear()
+        bg.fillStyle(0x000000, 0.75)
+        bg.lineStyle(2, color, 1)
+        this.roundedRect(bg, -width / 2, -height / 2, width, height, 10)
+      })
+
+      container.on('pointerdown', action)
+    }
 
     return container
   }
@@ -679,6 +755,47 @@ export class ResultScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('TreasureScene')
+    })
+  }
+
+  private reviveAndRetry(): void {
+    const reviveCount = this.result.reviveCount || 0
+    if (reviveCount >= MAX_REVIVE_COUNT) return
+
+    const nextReviveIndex = Math.min(reviveCount, REVIVE_CONFIGS.length - 1)
+    const config = REVIVE_CONFIGS[nextReviveIndex]
+
+    const save = this.saveManager.loadGame()!
+    if (save.player.gold < config.goldCost || save.player.spirit < config.spiritCost) {
+      return
+    }
+
+    save.player.gold -= config.goldCost
+    save.player.spirit -= config.spiritCost
+
+    const recoverHealth = Math.floor(save.player.maxHealth * config.healthRecoverPercent)
+    save.player.health = Math.min(save.player.maxHealth, recoverHealth)
+    save.player.mana = save.player.maxMana
+    SkillSystem.fullRestore(save.player)
+
+    this.saveManager.recalcPlayerStatsFromSave(save)
+    this.saveManager.saveGame(save)
+
+    this.cameras.main.fadeOut(400)
+    this.time.delayedCall(400, () => {
+      if (this.isChapterBattle && this.chapterId && this.levelId) {
+        this.scene.start('BattleScene', {
+          stageId: this.result.stageId,
+          chapterId: this.chapterId,
+          levelId: this.levelId,
+          reviveCount: reviveCount + 1
+        })
+      } else {
+        this.scene.start('BattleScene', {
+          stageId: this.result.stageId,
+          reviveCount: reviveCount + 1
+        })
+      }
     })
   }
 }
