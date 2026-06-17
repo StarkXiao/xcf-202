@@ -956,6 +956,27 @@ export interface ChapterReviewData {
   }
 }
 
+export interface SweepResult {
+  success: boolean
+  levelId: string
+  levelName: string
+  rewards: ChapterReward[]
+  leveledUp: boolean
+  levelsGained: number
+  message?: string
+}
+
+export interface ChapterSweepResult {
+  success: boolean
+  chapterId: string
+  chapterName: string
+  totalRewards: ChapterReward[]
+  sweepCount: number
+  leveledUp: boolean
+  levelsGained: number
+  sweepResults: SweepResult[]
+}
+
 export type ShopRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
 export type ShopItemType = 'pill' | 'herb' | 'material' | 'treasure' | 'consumable'
 

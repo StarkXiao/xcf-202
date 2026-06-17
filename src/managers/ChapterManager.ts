@@ -1,4 +1,4 @@
-import type { GameSave, ChapterProgress, Chapter, ChapterLevel, ChapterReward, ChapterReviewData, ChapterDialogueNode } from '../types'
+import type { GameSave, ChapterProgress, Chapter, ChapterLevel, ChapterReward, ChapterReviewData, ChapterDialogueNode, SweepResult, ChapterSweepResult } from '../types'
 import { CHAPTERS, getChapterById, getChapterByNumber, getNextChapter, getDialogueNodeById, getLevelById } from '../data/chapterData'
 import { SaveManager } from './SaveManager'
 
@@ -517,5 +517,258 @@ export class ChapterManager {
 
   getVictoryDialogueNodeForLevel(save: GameSave, chapterId: string, levelId: string): ChapterDialogueNode | null {
     return this.shouldTriggerVictoryDialogue(save, chapterId, levelId)
+  }
+
+  canSweepLevel(save: GameSave, chapterId: string, levelId: string): boolean {
+    if (!this.isLevelCompleted(save, levelId)) {
+      return false
+    }
+    const chapter = getChapterById(chapterId)
+    if (!chapter) return false
+    const level = chapter.levels.find(l => l.id === levelId)
+    if (!level) return false
+    if (save.player.level < level.requiredLevel) {
+      return false
+    }
+    return true
+  }
+
+  canSweepChapter(save: GameSave, chapterId: string): boolean {
+    return this.isChapterCompleted(save, chapterId)
+  }
+
+  sweepLevel(save: GameSave, chapterId: string, levelId: string): SweepResult {
+    if (!this.canSweepLevel(save, chapterId, levelId)) {
+      return {
+        success: false,
+        levelId,
+        levelName: '',
+        rewards: [],
+        leveledUp: false,
+        levelsGained: 0,
+        message: '未满足扫荡条件（需先通关且达到等级要求）'
+      }
+    }
+
+    const chapter = getChapterById(chapterId)
+    if (!chapter) {
+      return {
+        success: false,
+        levelId,
+        levelName: '',
+        rewards: [],
+        leveledUp: false,
+        levelsGained: 0,
+        message: '章节不存在'
+      }
+    }
+
+    const level = chapter.levels.find(l => l.id === levelId)
+    if (!level) {
+      return {
+        success: false,
+        levelId,
+        levelName: '',
+        rewards: [],
+        leveledUp: false,
+        levelsGained: 0,
+        message: '关卡不存在'
+      }
+    }
+
+    const rewards: ChapterReward[] = []
+    let totalExp = 0
+
+    level.rewards.forEach(reward => {
+      if (reward.type === 'exp') {
+        totalExp += reward.value
+      }
+      const applied = this.applyReward(save, reward)
+      if (applied) {
+        rewards.push(applied)
+      }
+    })
+
+    let leveledUp = false
+    let levelsGained = 0
+    if (totalExp > 0) {
+      const expResult = SaveManager.getInstance().addExp(save.player, totalExp)
+      leveledUp = expResult.leveledUp
+      levelsGained = expResult.levels
+    }
+
+    SaveManager.getInstance().recalcPlayerStatsFromSave(save)
+
+    if (leveledUp) {
+      save.player.health = save.player.maxHealth
+      save.player.mana = save.player.maxMana
+    }
+
+    SaveManager.getInstance().saveGame(save)
+
+    return {
+      success: true,
+      levelId,
+      levelName: level.name,
+      rewards,
+      leveledUp,
+      levelsGained
+    }
+  }
+
+  sweepChapter(save: GameSave, chapterId: string): ChapterSweepResult {
+    if (!this.canSweepChapter(save, chapterId)) {
+      return {
+        success: false,
+        chapterId,
+        chapterName: '',
+        totalRewards: [],
+        sweepCount: 0,
+        leveledUp: false,
+        levelsGained: 0,
+        sweepResults: []
+      }
+    }
+
+    const chapter = getChapterById(chapterId)
+    if (!chapter) {
+      return {
+        success: false,
+        chapterId,
+        chapterName: '',
+        totalRewards: [],
+        sweepCount: 0,
+        leveledUp: false,
+        levelsGained: 0,
+        sweepResults: []
+      }
+    }
+
+    const sweepResults: SweepResult[] = []
+    const totalRewardsMap = new Map<string, number>()
+    let totalLeveledUp = false
+    let totalLevelsGained = 0
+    let sweepCount = 0
+
+    chapter.levels.forEach(level => {
+      if (this.canSweepLevel(save, chapterId, level.id)) {
+        const result = this.sweepLevel(save, chapterId, level.id)
+        if (result.success) {
+          sweepResults.push(result)
+          sweepCount++
+
+          result.rewards.forEach(reward => {
+            const key = reward.type
+            const current = totalRewardsMap.get(key) || 0
+            totalRewardsMap.set(key, current + reward.value)
+          })
+
+          if (result.leveledUp) {
+            totalLeveledUp = true
+            totalLevelsGained += result.levelsGained
+          }
+        }
+      }
+    })
+
+    const totalRewards: ChapterReward[] = []
+    totalRewardsMap.forEach((value, type) => {
+      totalRewards.push({
+        type: type as ChapterReward['type'],
+        value
+      })
+    })
+
+    SaveManager.getInstance().saveGame(save)
+
+    return {
+      success: true,
+      chapterId,
+      chapterName: chapter.name,
+      totalRewards,
+      sweepCount,
+      leveledUp: totalLeveledUp,
+      levelsGained: totalLevelsGained,
+      sweepResults
+    }
+  }
+
+  sweepChapterMultipleTimes(save: GameSave, chapterId: string, times: number): ChapterSweepResult {
+    if (!this.canSweepChapter(save, chapterId)) {
+      return {
+        success: false,
+        chapterId,
+        chapterName: '',
+        totalRewards: [],
+        sweepCount: 0,
+        leveledUp: false,
+        levelsGained: 0,
+        sweepResults: []
+      }
+    }
+
+    const chapter = getChapterById(chapterId)
+    if (!chapter) {
+      return {
+        success: false,
+        chapterId,
+        chapterName: '',
+        totalRewards: [],
+        sweepCount: 0,
+        leveledUp: false,
+        levelsGained: 0,
+        sweepResults: []
+      }
+    }
+
+    const sweepResults: SweepResult[] = []
+    const totalRewardsMap = new Map<string, number>()
+    let totalLeveledUp = false
+    let totalLevelsGained = 0
+    let totalSweepCount = 0
+
+    for (let t = 0; t < times; t++) {
+      chapter.levels.forEach(level => {
+        if (this.canSweepLevel(save, chapterId, level.id)) {
+          const result = this.sweepLevel(save, chapterId, level.id)
+          if (result.success) {
+            sweepResults.push(result)
+            totalSweepCount++
+
+            result.rewards.forEach(reward => {
+              const key = reward.type
+              const current = totalRewardsMap.get(key) || 0
+              totalRewardsMap.set(key, current + reward.value)
+            })
+
+            if (result.leveledUp) {
+              totalLeveledUp = true
+              totalLevelsGained += result.levelsGained
+            }
+          }
+        }
+      })
+    }
+
+    const totalRewards: ChapterReward[] = []
+    totalRewardsMap.forEach((value, type) => {
+      totalRewards.push({
+        type: type as ChapterReward['type'],
+        value
+      })
+    })
+
+    SaveManager.getInstance().saveGame(save)
+
+    return {
+      success: true,
+      chapterId,
+      chapterName: chapter.name,
+      totalRewards,
+      sweepCount: totalSweepCount,
+      leveledUp: totalLeveledUp,
+      levelsGained: totalLevelsGained,
+      sweepResults
+    }
   }
 }

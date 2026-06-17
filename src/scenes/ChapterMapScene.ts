@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { GameSave, Chapter, ChapterLevel, ChapterReward } from '../types'
+import type { GameSave, Chapter, ChapterLevel, ChapterReward, SweepResult, ChapterSweepResult } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { ChapterManager } from '../managers/ChapterManager'
 import { CHAPTERS } from '../data/chapterData'
@@ -353,6 +353,11 @@ export class ChapterMapScene extends Phaser.Scene {
       }
     }
 
+    if (level.isCompleted && this.chapterManager.canSweepLevel(this.save, this.currentChapter.id, level.id)) {
+      const sweepBtn = this.createSweepButton(x, y - size / 2 - 28, level)
+      container.parentContainer?.add(sweepBtn)
+    }
+
     const label = this.add.text(0, size / 2 + 20, level.name, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '14px',
@@ -360,6 +365,51 @@ export class ChapterMapScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5, 0)
     container.add(label)
+
+    return container
+  }
+
+  private createSweepButton(x: number, y: number, level: ChapterLevel & { isUnlocked: boolean; isCompleted: boolean }): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y)
+    const btnWidth = 60
+    const btnHeight = 26
+
+    const bg = this.add.graphics()
+    bg.fillStyle(0x000000, 0.8)
+    bg.lineStyle(2, 0xffd54f, 1)
+    this.roundedRect(bg, -btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 6)
+
+    const text = this.add.text(0, 0, '⚡ 扫荡', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '13px',
+      color: '#ffd54f',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+
+    container.add([bg, text])
+    container.setSize(btnWidth, btnHeight)
+    container.setInteractive({ useHandCursor: true })
+    container.setDepth(50)
+
+    container.on('pointerover', () => {
+      this.tweens.add({ targets: container, scale: 1.1, duration: 100 })
+      bg.clear()
+      bg.fillStyle(0xffd54f, 0.3)
+      bg.lineStyle(3, 0xffd54f, 1)
+      this.roundedRect(bg, -btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 6)
+    })
+
+    container.on('pointerout', () => {
+      this.tweens.add({ targets: container, scale: 1, duration: 100 })
+      bg.clear()
+      bg.fillStyle(0x000000, 0.8)
+      bg.lineStyle(2, 0xffd54f, 1)
+      this.roundedRect(bg, -btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 6)
+    })
+
+    container.on('pointerdown', () => {
+      this.handleSweepLevel(level)
+    })
 
     return container
   }
@@ -493,7 +543,10 @@ export class ChapterMapScene extends Phaser.Scene {
     const state = this.currentChapter.state
     if (state.status !== 'completed') return
 
-    const btn = this.add.container(width - 80, height - 40)
+    const canSweep = this.chapterManager.canSweepChapter(this.save, this.currentChapter.id)
+
+    const btnX = canSweep ? width - 180 : width - 80
+    const btn = this.add.container(btnX, height - 40)
     const bg = this.add.graphics()
     bg.fillStyle(0x000000, 0.6)
     bg.lineStyle(2, 0xffd54f, 0.9)
@@ -514,6 +567,52 @@ export class ChapterMapScene extends Phaser.Scene {
         this.scene.start('ChapterReviewScene', { chapterId: this.currentChapter.id })
       })
     })
+
+    if (canSweep) {
+      this.createChapterSweepButton(width - 40, height - 40)
+    }
+  }
+
+  private createChapterSweepButton(x: number, y: number): void {
+    const container = this.add.container(x, y)
+    const btnWidth = 120
+    const btnHeight = 44
+
+    const bg = this.add.graphics()
+    bg.fillStyle(0x000000, 0.7)
+    bg.lineStyle(2, 0xff9800, 0.95)
+    this.roundedRect(bg, -btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 10)
+
+    const text = this.add.text(0, 0, '⚡ 章节扫荡', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#ffcc80',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+
+    container.add([bg, text])
+    container.setSize(btnWidth, btnHeight)
+    container.setInteractive({ useHandCursor: true })
+
+    container.on('pointerover', () => {
+      this.tweens.add({ targets: container, scale: 1.08, duration: 150 })
+      bg.clear()
+      bg.fillStyle(0xff9800, 0.35)
+      bg.lineStyle(3, 0xff9800, 1)
+      this.roundedRect(bg, -btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 10)
+    })
+
+    container.on('pointerout', () => {
+      this.tweens.add({ targets: container, scale: 1, duration: 150 })
+      bg.clear()
+      bg.fillStyle(0x000000, 0.7)
+      bg.lineStyle(2, 0xff9800, 0.95)
+      this.roundedRect(bg, -btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 10)
+    })
+
+    container.on('pointerdown', () => {
+      this.handleSweepChapter()
+    })
   }
 
   private roundedRect(graphics: Phaser.GameObjects.Graphics, x: number, y: number, width: number, height: number, radius: number): void {
@@ -530,5 +629,424 @@ export class ChapterMapScene extends Phaser.Scene {
     graphics.closePath()
     graphics.fillPath()
     graphics.strokePath()
+  }
+
+  private handleSweepLevel(level: ChapterLevel & { isUnlocked: boolean; isCompleted: boolean }): void {
+    const result = this.chapterManager.sweepLevel(this.save, this.currentChapter.id, level.id)
+    this.showSweepResult(result)
+  }
+
+  private handleSweepChapter(): void {
+    this.showSweepConfirmDialog()
+  }
+
+  private sweepConfirmDialog: Phaser.GameObjects.Container | null = null
+
+  private showSweepConfirmDialog(): void {
+    this.hideSweepConfirmDialog()
+
+    const { width, height } = this.scale
+    const dialog = this.add.container(width / 2, height / 2)
+
+    const overlay = this.add.graphics()
+    overlay.fillStyle(0x000000, 0.6)
+    overlay.fillRect(-width / 2, -height / 2, width, height)
+
+    const panelWidth = 420
+    const panelHeight = 320
+
+    const panel = this.add.graphics()
+    panel.fillStyle(0x1a1a2e, 0.98)
+    panel.lineStyle(3, 0xff9800, 0.95)
+    this.roundedRect(panel, -panelWidth / 2, -panelHeight / 2, panelWidth, panelHeight, 16)
+
+    const title = this.add.text(0, -panelHeight / 2 + 40, '⚡ 章节扫荡', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '28px',
+      color: '#ffcc80',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+
+    const desc = this.add.text(0, -panelHeight / 2 + 90, `选择扫荡次数，快速获取奖励`, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '16px',
+      color: '#b0bec5'
+    }).setOrigin(0.5)
+
+    const times = [1, 5, 10]
+    const timeButtons: Phaser.GameObjects.Container[] = []
+    let selectedTime = 1
+
+    times.forEach((t, idx) => {
+      const bx = -120 + idx * 120
+      const btnContainer = this.add.container(bx, -10)
+      const bw = 100
+      const bh = 50
+
+      const btnBg = this.add.graphics()
+      btnBg.fillStyle(0x000000, 0.7)
+      btnBg.lineStyle(2, idx === 0 ? 0xffd54f : 0x555555, 1)
+      this.roundedRect(btnBg, -bw / 2, -bh / 2, bw, bh, 10)
+
+      const btnText = this.add.text(0, 0, `${t} 次`, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: idx === 0 ? '#ffd54f' : '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5)
+
+      btnContainer.add([btnBg, btnText])
+      btnContainer.setSize(bw, bh)
+      btnContainer.setInteractive({ useHandCursor: true })
+
+      btnContainer.on('pointerover', () => {
+        this.tweens.add({ targets: btnContainer, scale: 1.05, duration: 100 })
+      })
+      btnContainer.on('pointerout', () => {
+        this.tweens.add({ targets: btnContainer, scale: 1, duration: 100 })
+      })
+      btnContainer.on('pointerdown', () => {
+        selectedTime = t
+        timeButtons.forEach((tb, i) => {
+          const tbBg = tb.getAt(0) as Phaser.GameObjects.Graphics
+          const tbText = tb.getAt(1) as Phaser.GameObjects.Text
+          tbBg.clear()
+          tbBg.fillStyle(0x000000, 0.7)
+          tbBg.lineStyle(2, i === idx ? 0xffd54f : 0x555555, 1)
+          this.roundedRect(tbBg, -50, -25, 100, 50, 10)
+          tbText.setColor(i === idx ? '#ffd54f' : '#ffffff')
+        })
+      })
+
+      timeButtons.push(btnContainer)
+    })
+
+    const confirmBtn = this.add.container(-80, panelHeight / 2 - 50)
+    const cbw = 130
+    const cbh = 44
+    const confirmBg = this.add.graphics()
+    confirmBg.fillStyle(0x000000, 0.7)
+    confirmBg.lineStyle(2, 0xff9800, 0.95)
+    this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    const confirmText = this.add.text(0, 0, '开始扫荡', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#ffcc80',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+    confirmBtn.add([confirmBg, confirmText])
+    confirmBtn.setSize(cbw, cbh)
+    confirmBtn.setInteractive({ useHandCursor: true })
+
+    confirmBtn.on('pointerover', () => {
+      this.tweens.add({ targets: confirmBtn, scale: 1.08, duration: 150 })
+      confirmBg.clear()
+      confirmBg.fillStyle(0xff9800, 0.35)
+      confirmBg.lineStyle(3, 0xff9800, 1)
+      this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    })
+    confirmBtn.on('pointerout', () => {
+      this.tweens.add({ targets: confirmBtn, scale: 1, duration: 150 })
+      confirmBg.clear()
+      confirmBg.fillStyle(0x000000, 0.7)
+      confirmBg.lineStyle(2, 0xff9800, 0.95)
+      this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    })
+    confirmBtn.on('pointerdown', () => {
+      this.hideSweepConfirmDialog()
+      const result = this.chapterManager.sweepChapterMultipleTimes(this.save, this.currentChapter.id, selectedTime)
+      this.showChapterSweepResult(result)
+    })
+
+    const cancelBtn = this.add.container(80, panelHeight / 2 - 50)
+    const cxbw = 130
+    const cxbh = 44
+    const cancelBg = this.add.graphics()
+    cancelBg.fillStyle(0x000000, 0.7)
+    cancelBg.lineStyle(2, 0x78909c, 0.95)
+    this.roundedRect(cancelBg, -cxbw / 2, -cxbh / 2, cxbw, cxbh, 10)
+    const cancelText = this.add.text(0, 0, '取消', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#b0bec5'
+    }).setOrigin(0.5)
+    cancelBtn.add([cancelBg, cancelText])
+    cancelBtn.setSize(cxbw, cxbh)
+    cancelBtn.setInteractive({ useHandCursor: true })
+
+    cancelBtn.on('pointerover', () => {
+      this.tweens.add({ targets: cancelBtn, scale: 1.08, duration: 150 })
+    })
+    cancelBtn.on('pointerout', () => {
+      this.tweens.add({ targets: cancelBtn, scale: 1, duration: 150 })
+    })
+    cancelBtn.on('pointerdown', () => {
+      this.hideSweepConfirmDialog()
+    })
+
+    dialog.add([overlay, panel, title, desc, ...timeButtons, confirmBtn, cancelBtn])
+    dialog.setDepth(200)
+    this.sweepConfirmDialog = dialog
+  }
+
+  private hideSweepConfirmDialog(): void {
+    if (this.sweepConfirmDialog) {
+      this.sweepConfirmDialog.destroy()
+      this.sweepConfirmDialog = null
+    }
+  }
+
+  private sweepResultDialog: Phaser.GameObjects.Container | null = null
+
+  private showSweepResult(result: SweepResult): void {
+    this.hideSweepResult()
+
+    const { width, height } = this.scale
+    const dialog = this.add.container(width / 2, height / 2)
+
+    const overlay = this.add.graphics()
+    overlay.fillStyle(0x000000, 0.6)
+    overlay.fillRect(-width / 2, -height / 2, width, height)
+
+    const panelWidth = 400
+    const rewardCount = result.rewards.length
+    const panelHeight = 260 + rewardCount * 35 + (result.leveledUp ? 50 : 0)
+
+    const panel = this.add.graphics()
+    panel.fillStyle(0x1a1a2e, 0.98)
+    panel.lineStyle(3, result.success ? 0xffd54f : 0xef5350, 0.95)
+    this.roundedRect(panel, -panelWidth / 2, -panelHeight / 2, panelWidth, panelHeight, 16)
+
+    const title = this.add.text(0, -panelHeight / 2 + 40,
+      result.success ? '⚡ 扫荡成功' : '❌ 扫荡失败', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '28px',
+      color: result.success ? '#ffd54f' : '#ef5350',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+
+    if (result.message) {
+      const msg = this.add.text(0, -panelHeight / 2 + 80, result.message, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '16px',
+        color: '#ef5350'
+      }).setOrigin(0.5)
+      dialog.add(msg)
+    } else {
+      const levelName = this.add.text(0, -panelHeight / 2 + 80, `关卡：${result.levelName}`, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '18px',
+        color: '#ffffff'
+      }).setOrigin(0.5)
+      dialog.add(levelName)
+    }
+
+    if (result.success && result.rewards.length > 0) {
+      const rewardTitle = this.add.text(0, -panelHeight / 2 + 120, '获得奖励：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '18px',
+        color: '#ffcc80',
+        fontStyle: 'bold'
+      }).setOrigin(0.5)
+      dialog.add(rewardTitle)
+
+      result.rewards.forEach((reward, idx) => {
+        const rewardLabel = this.chapterManager.getRewardLabel(reward)
+        const rewardText = this.add.text(0, -panelHeight / 2 + 155 + idx * 35, rewardLabel, {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '18px',
+          color: '#81c784'
+        }).setOrigin(0.5)
+        dialog.add(rewardText)
+      })
+    }
+
+    if (result.leveledUp) {
+      const levelUpText = this.add.text(0, panelHeight / 2 - 110,
+        `🎊 等级提升！提升了 ${result.levelsGained} 级`, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#ffd54f',
+        fontStyle: 'bold',
+        stroke: '#5d4037',
+        strokeThickness: 2
+      }).setOrigin(0.5)
+      dialog.add(levelUpText)
+    }
+
+    const playerInfo = this.add.text(0, panelHeight / 2 - 75,
+      `当前等级: Lv.${this.save.player.level}  |  经验: ${this.save.player.exp}/${this.save.player.expToNext}`, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '16px',
+      color: '#b0bec5'
+    }).setOrigin(0.5)
+
+    const confirmBtn = this.add.container(0, panelHeight / 2 - 40)
+    const cbw = 140
+    const cbh = 44
+    const confirmBg = this.add.graphics()
+    confirmBg.fillStyle(0x000000, 0.7)
+    confirmBg.lineStyle(2, 0x4fc3f7, 0.95)
+    this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    const confirmText = this.add.text(0, 0, '确定', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+    confirmBtn.add([confirmBg, confirmText])
+    confirmBtn.setSize(cbw, cbh)
+    confirmBtn.setInteractive({ useHandCursor: true })
+
+    confirmBtn.on('pointerover', () => {
+      this.tweens.add({ targets: confirmBtn, scale: 1.08, duration: 150 })
+      confirmBg.clear()
+      confirmBg.fillStyle(0x4fc3f7, 0.35)
+      confirmBg.lineStyle(3, 0x4fc3f7, 1)
+      this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    })
+    confirmBtn.on('pointerout', () => {
+      this.tweens.add({ targets: confirmBtn, scale: 1, duration: 150 })
+      confirmBg.clear()
+      confirmBg.fillStyle(0x000000, 0.7)
+      confirmBg.lineStyle(2, 0x4fc3f7, 0.95)
+      this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    })
+    confirmBtn.on('pointerdown', () => {
+      this.hideSweepResult()
+      this.scene.restart({ chapterId: this.currentChapter.id })
+    })
+
+    dialog.add([overlay, panel, title, playerInfo, confirmBtn])
+    dialog.setDepth(200)
+    this.sweepResultDialog = dialog
+  }
+
+  private showChapterSweepResult(result: ChapterSweepResult): void {
+    this.hideSweepResult()
+
+    const { width, height } = this.scale
+    const dialog = this.add.container(width / 2, height / 2)
+
+    const overlay = this.add.graphics()
+    overlay.fillStyle(0x000000, 0.6)
+    overlay.fillRect(-width / 2, -height / 2, width, height)
+
+    const rewardCount = result.totalRewards.length
+    const panelWidth = 460
+    const panelHeight = 320 + rewardCount * 35 + (result.leveledUp ? 50 : 0)
+
+    const panel = this.add.graphics()
+    panel.fillStyle(0x1a1a2e, 0.98)
+    panel.lineStyle(3, result.success ? 0xff9800 : 0xef5350, 0.95)
+    this.roundedRect(panel, -panelWidth / 2, -panelHeight / 2, panelWidth, panelHeight, 16)
+
+    const title = this.add.text(0, -panelHeight / 2 + 40,
+      result.success ? '⚡ 章节扫荡完成' : '❌ 扫荡失败', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '28px',
+      color: result.success ? '#ffcc80' : '#ef5350',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+
+    const chapterInfo = this.add.text(0, -panelHeight / 2 + 85,
+      `${result.chapterName}  |  扫荡 ${result.sweepCount} 次`, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#ffffff'
+    }).setOrigin(0.5)
+
+    let contentY = -panelHeight / 2 + 130
+
+    if (result.success && result.totalRewards.length > 0) {
+      const rewardTitle = this.add.text(0, contentY, '累计获得奖励：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '18px',
+        color: '#ffcc80',
+        fontStyle: 'bold'
+      }).setOrigin(0.5)
+      dialog.add(rewardTitle)
+      contentY += 35
+
+      result.totalRewards.forEach((reward, idx) => {
+        const rewardLabel = this.chapterManager.getRewardLabel(reward)
+        const rewardText = this.add.text(0, contentY + idx * 35, rewardLabel, {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '18px',
+          color: '#81c784'
+        }).setOrigin(0.5)
+        dialog.add(rewardText)
+      })
+      contentY += rewardCount * 35
+    }
+
+    if (result.leveledUp) {
+      const levelUpText = this.add.text(0, contentY + 10,
+        `🎊 等级提升！共提升 ${result.levelsGained} 级`, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#ffd54f',
+        fontStyle: 'bold',
+        stroke: '#5d4037',
+        strokeThickness: 2
+      }).setOrigin(0.5)
+      dialog.add(levelUpText)
+      contentY += 50
+    }
+
+    const playerInfo = this.add.text(0, contentY + 10,
+      `当前等级: Lv.${this.save.player.level}  |  经验: ${this.save.player.exp}/${this.save.player.expToNext}`, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '16px',
+      color: '#b0bec5'
+    }).setOrigin(0.5)
+    dialog.add(playerInfo)
+
+    const confirmBtn = this.add.container(0, panelHeight / 2 - 40)
+    const cbw = 140
+    const cbh = 44
+    const confirmBg = this.add.graphics()
+    confirmBg.fillStyle(0x000000, 0.7)
+    confirmBg.lineStyle(2, 0x4fc3f7, 0.95)
+    this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    const confirmText = this.add.text(0, 0, '确定', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+    confirmBtn.add([confirmBg, confirmText])
+    confirmBtn.setSize(cbw, cbh)
+    confirmBtn.setInteractive({ useHandCursor: true })
+
+    confirmBtn.on('pointerover', () => {
+      this.tweens.add({ targets: confirmBtn, scale: 1.08, duration: 150 })
+      confirmBg.clear()
+      confirmBg.fillStyle(0x4fc3f7, 0.35)
+      confirmBg.lineStyle(3, 0x4fc3f7, 1)
+      this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    })
+    confirmBtn.on('pointerout', () => {
+      this.tweens.add({ targets: confirmBtn, scale: 1, duration: 150 })
+      confirmBg.clear()
+      confirmBg.fillStyle(0x000000, 0.7)
+      confirmBg.lineStyle(2, 0x4fc3f7, 0.95)
+      this.roundedRect(confirmBg, -cbw / 2, -cbh / 2, cbw, cbh, 10)
+    })
+    confirmBtn.on('pointerdown', () => {
+      this.hideSweepResult()
+      this.scene.restart({ chapterId: this.currentChapter.id })
+    })
+
+    dialog.add([overlay, panel, title, chapterInfo, confirmBtn])
+    dialog.setDepth(200)
+    this.sweepResultDialog = dialog
+  }
+
+  private hideSweepResult(): void {
+    if (this.sweepResultDialog) {
+      this.sweepResultDialog.destroy()
+      this.sweepResultDialog = null
+    }
   }
 }
