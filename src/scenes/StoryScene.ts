@@ -1,8 +1,8 @@
 import Phaser from 'phaser'
-import type { GameSave, StoryDialogue, ChapterReward } from '../types'
+import type { GameSave, StoryDialogue, ChapterReward, BattleResult } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { ChapterManager } from '../managers/ChapterManager'
-import { getChapterById } from '../data/chapterData'
+import { getChapterById, getDialogueNodeById } from '../data/chapterData'
 
 export class StoryScene extends Phaser.Scene {
   private save!: GameSave
@@ -16,6 +16,12 @@ export class StoryScene extends Phaser.Scene {
   private isLevelStory = false
   private isOpeningStory = false
   private isClosingStory = false
+  private isVictoryStory = false
+  private victoryDialogueNodeId?: string
+  private battleResult?: BattleResult
+  private chapterRewards?: ChapterReward[]
+  private leveledUp = false
+  private levelsGained = 0
   
   private dialoguePanel!: Phaser.GameObjects.Graphics
   private speakerName!: Phaser.GameObjects.Text
@@ -48,6 +54,12 @@ export class StoryScene extends Phaser.Scene {
     isLevelStory?: boolean
     isOpeningStory?: boolean
     isClosingStory?: boolean
+    isVictoryStory?: boolean
+    victoryDialogueNodeId?: string
+    battleResult?: BattleResult
+    chapterRewards?: ChapterReward[]
+    leveledUp?: boolean
+    levels?: number
   }): void {
     const existingSave = this.saveManager.loadGame()
     this.save = existingSave || this.saveManager.createNewSave()
@@ -58,11 +70,22 @@ export class StoryScene extends Phaser.Scene {
     this.isLevelStory = data.isLevelStory || false
     this.isOpeningStory = data.isOpeningStory || false
     this.isClosingStory = data.isClosingStory || false
+    this.isVictoryStory = data.isVictoryStory || false
+    this.victoryDialogueNodeId = data.victoryDialogueNodeId
+    this.battleResult = data.battleResult
+    this.chapterRewards = data.chapterRewards
+    this.leveledUp = data.leveledUp || false
+    this.levelsGained = data.levels || 0
     
     const chapter = getChapterById(this.chapterId)
     
     if (data.dialogues && data.dialogues.length > 0) {
       this.dialogues = data.dialogues
+    } else if (this.isVictoryStory && this.victoryDialogueNodeId) {
+      const node = getDialogueNodeById(this.chapterId, this.victoryDialogueNodeId)
+      if (node) {
+        this.dialogues = node.dialogues
+      }
     } else if (this.isOpeningStory && chapter) {
       this.dialogues = chapter.openingStory
     } else if (this.isClosingStory && chapter) {
@@ -429,6 +452,47 @@ export class StoryScene extends Phaser.Scene {
     
     this.time.delayedCall(500, () => {
       let rewards: ChapterReward[] = []
+      
+      if (this.isVictoryStory && this.victoryDialogueNodeId) {
+        const node = getDialogueNodeById(this.chapterId, this.victoryDialogueNodeId)
+        if (node) {
+          this.chapterManager.markDialogueNodeTriggered(this.save, this.victoryDialogueNodeId)
+          rewards = this.chapterManager.applyDialogueNodeRewards(this.save, node)
+        }
+        
+        const chapter = getChapterById(this.chapterId)
+        const shouldShowClosingStory = this.chapterManager.shouldShowClosingStory(this.save, this.chapterId)
+        const shouldShowReview = this.chapterManager.isChapterCompleted(this.save, this.chapterId)
+        
+        const allRewards = [...(this.chapterRewards || []), ...rewards]
+        
+        if (shouldShowClosingStory) {
+          this.scene.start('StoryScene', {
+            chapterId: this.chapterId,
+            isClosingStory: true
+          })
+        } else if (shouldShowReview) {
+          this.scene.start('ChapterReviewScene', {
+            chapterId: this.chapterId
+          })
+        } else if (this.battleResult) {
+          this.scene.start('ResultScene', {
+            result: this.battleResult,
+            chapterRewards: allRewards,
+            leveledUp: this.leveledUp,
+            levels: this.levelsGained,
+            fromChapterVictory: true,
+            chapterId: this.chapterId
+          })
+        } else {
+          if (allRewards.length > 0) {
+            this.showRewardPopup(allRewards)
+          } else {
+            this.returnToMap()
+          }
+        }
+        return
+      }
       
       if (this.isLevelStory && this.levelId) {
         rewards = this.chapterManager.completeLevel(this.save, this.chapterId, this.levelId)

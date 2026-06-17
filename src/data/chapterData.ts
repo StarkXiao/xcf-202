@@ -1,4 +1,4 @@
-import type { Chapter, ChapterLevel, StoryDialogue, ChapterReward } from '../types'
+import type { Chapter, ChapterLevel, StoryDialogue, ChapterReward, ChapterDialogueNode } from '../types'
 
 const createDialogue = (speaker: string, text: string, color: number, avatar?: string): StoryDialogue => ({
   speaker, text, color, avatar
@@ -6,6 +6,20 @@ const createDialogue = (speaker: string, text: string, color: number, avatar?: s
 
 const createReward = (type: ChapterReward['type'], value: number, itemId?: string, itemName?: string): ChapterReward => ({
   type, value, itemId, itemName
+})
+
+const createDialogueNode = (
+  id: string,
+  triggerType: ChapterDialogueNode['triggerType'],
+  dialogues: StoryDialogue[],
+  rewards?: ChapterReward[],
+  options: { nextNodeId?: string; isKeyStory?: boolean } = {}
+): ChapterDialogueNode => ({
+  id,
+  triggerType,
+  dialogues,
+  rewards,
+  ...options
 })
 
 const createLevel = (
@@ -16,7 +30,7 @@ const createLevel = (
   position: { x: number; y: number },
   requiredLevel: number,
   rewards: ChapterReward[],
-  options: { stageId?: number; storyDialogues?: StoryDialogue[] } = {}
+  options: { stageId?: number; storyDialogues?: StoryDialogue[]; victoryDialogueNodeId?: string } = {}
 ): ChapterLevel => ({
   id,
   name,
@@ -59,6 +73,16 @@ export const CHAPTERS: Chapter[] = [
       createDialogue('剑仙', '弟子愿往！', 0x4fc3f7, '⚔'),
       createDialogue('旁白', '第一章 · 初入仙途 完成！', 0xffd54f)
     ],
+    dialogueNodes: [
+      createDialogueNode('ch1_boss_victory', 'boss_victory', [
+        createDialogue('旁白', '青冥谷主轰然倒地...', 0xb0bec5),
+        createDialogue('剑仙', '终于...击败了青冥谷主！', 0x4fc3f7, '⚔'),
+        createDialogue('旁白', '只见谷主身上飞出一枚晶莹剔透的玉珠...', 0xffd54f),
+        createDialogue('剑仙', '这是...谷主的内丹？蕴含着精纯的灵气！', 0x4fc3f7, '⚔'),
+        createDialogue('师尊', '（传音）徒儿，这是谷主千年修为所化，收好了！', 0x81c784, '👴'),
+        createDialogue('旁白', '你将内丹收入囊中，感到修为又有精进！', 0xffd54f)
+      ], [createReward('spirit', 50), createReward('attack', 5)], { isKeyStory: true })
+    ],
     levels: [
       createLevel('ch1_level1', '启程', '初入仙途，在山谷中遇到第一只妖兽', 'story', { x: 150, y: 200 }, 1, [createReward('exp', 30), createReward('gold', 50)], {
         storyDialogues: [
@@ -84,7 +108,8 @@ export const CHAPTERS: Chapter[] = [
         ]
       }),
       createLevel('ch1_level5', '谷主之怒', '青冥谷主现身', 'boss', { x: 650, y: 250 }, 3, [createReward('exp', 100), createReward('gold', 200), createReward('spirit', 30)], {
-        stageId: 2
+        stageId: 2,
+        victoryDialogueNodeId: 'ch1_boss_victory'
       })
     ],
     completionRewards: [
@@ -119,6 +144,17 @@ export const CHAPTERS: Chapter[] = [
       createDialogue('剑仙', '弟子明白！', 0x4fc3f7, '⚔'),
       createDialogue('旁白', '第二章 · 血煞魔洞 完成！', 0xffd54f)
     ],
+    dialogueNodes: [
+      createDialogueNode('ch2_boss_victory', 'boss_victory', [
+        createDialogue('旁白', '血魔发出最后一声凄厉的咆哮，化作漫天血雨消散...', 0xb0bec5),
+        createDialogue('剑仙', '终于...封印了血魔！', 0x4fc3f7, '⚔'),
+        createDialogue('旁白', '祭坛中央的血色心脏停止了跳动，取而代之的是一颗璀璨的金丹！', 0xffd54f),
+        createDialogue('封印守护者', '年轻人...多谢你...这枚血魔金丹，便赠予你...', 0xba68c8, '👻'),
+        createDialogue('剑仙', '前辈！这太贵重了！', 0x4fc3f7, '⚔'),
+        createDialogue('封印守护者', '守护封印千载...我也该安息了...去吧，守护三界...', 0xba68c8, '👻'),
+        createDialogue('旁白', '守护者的身影渐渐消散，你将金丹收入体内，境界再破一重！', 0xffd54f)
+      ], [createReward('spirit', 100), createReward('defense', 8), createReward('maxHealth', 50)], { isKeyStory: true })
+    ],
     levels: [
       createLevel('ch2_level1', '魔洞初探', '进入血煞魔洞外围', 'story', { x: 180, y: 180 }, 4, [createReward('exp', 60), createReward('gold', 100)], {
         storyDialogues: [
@@ -146,7 +182,8 @@ export const CHAPTERS: Chapter[] = [
         ]
       }),
       createLevel('ch2_level5', '血魔觉醒', '血魔破封而出', 'boss', { x: 720, y: 230 }, 6, [createReward('exp', 200), createReward('gold', 400), createReward('spirit', 60)], {
-        stageId: 3
+        stageId: 3,
+        victoryDialogueNodeId: 'ch2_boss_victory'
       })
     ],
     completionRewards: [
@@ -180,6 +217,19 @@ export const CHAPTERS: Chapter[] = [
       createDialogue('剑仙', '弟子这就前往！', 0x4fc3f7, '⚔'),
       createDialogue('旁白', '第三章 · 九幽深渊 完成！', 0xffd54f)
     ],
+    dialogueNodes: [
+      createDialogueNode('ch3_boss_victory', 'boss_victory', [
+        createDialogue('旁白', '遗迹守护者的身躯化作漫天光点消散...', 0xb0bec5),
+        createDialogue('上古剑仙', '做得好...年轻人...', 0xffd54f, '👑'),
+        createDialogue('剑仙', '前辈！我通过考验了吗？', 0x4fc3f7, '⚔'),
+        createDialogue('上古剑仙', '你的剑意...纯净而坚定...配得上我的传承...', 0xffd54f, '👑'),
+        createDialogue('旁白', '一柄散发着万丈光芒的古剑从虚空中浮现...', 0xffd54f),
+        createDialogue('上古剑仙', '此乃「天衍剑」...伴我征战千年...今日，便赠予你...', 0xffd54f, '👑'),
+        createDialogue('上古剑仙', '记住...御剑在心，不在于剑，而在于人...', 0xffd54f, '👑'),
+        createDialogue('旁白', '上古剑仙的身影化作一道金光，飞入你的眉心...', 0xffd54f),
+        createDialogue('剑仙', '前辈！我定不会辜负你的期望！', 0x4fc3f7, '⚔')
+      ], [createReward('spirit', 150), createReward('attack', 15), createReward('exp', 100)], { isKeyStory: true })
+    ],
     levels: [
       createLevel('ch3_level1', '深渊入口', '踏入九幽深渊', 'story', { x: 160, y: 220 }, 7, [createReward('exp', 100), createReward('gold', 150)], {
         storyDialogues: [
@@ -207,7 +257,8 @@ export const CHAPTERS: Chapter[] = [
         ]
       }),
       createLevel('ch3_level5', '遗迹守护者', '接受上古剑仙的考验', 'boss', { x: 720, y: 250 }, 9, [createReward('exp', 300), createReward('gold', 600), createReward('spirit', 80)], {
-        stageId: 4
+        stageId: 4,
+        victoryDialogueNodeId: 'ch3_boss_victory'
       })
     ],
     completionRewards: [
@@ -242,6 +293,20 @@ export const CHAPTERS: Chapter[] = [
       createDialogue('剑仙', '弟子定当不辱使命！', 0x4fc3f7, '⚔'),
       createDialogue('旁白', '第四章 · 焚天熔岩 完成！', 0xffd54f)
     ],
+    dialogueNodes: [
+      createDialogueNode('ch4_boss_victory', 'boss_victory', [
+        createDialogue('旁白', '熔岩巨兽发出震天怒吼，身躯渐渐凝固成石像...', 0xb0bec5),
+        createDialogue('火神残魂', '哈哈哈！好小子！竟能击败我的护法神兽！', 0xff7043, '🔥'),
+        createDialogue('剑仙', '前辈！这是...', 0x4fc3f7, '⚔'),
+        createDialogue('火神残魂', '这熔岩巨兽，乃是我用神火培育的护法...你能击败它，证明你有资格接受我的传承！', 0xff7043, '🔥'),
+        createDialogue('旁白', '祭坛上的神火暴涨，化作一道火柱冲天而起！', 0xffd54f),
+        createDialogue('火神残魂', '「焚天神火」——这是我穷尽一生参悟的火焰大道...', 0xff7043, '🔥'),
+        createDialogue('火神残魂', '今日，便将这神火真意，连同我的本命火种，一并传授于你！', 0xff7043, '🔥'),
+        createDialogue('旁白', '一颗散发着炽热光芒的火种飞入你的丹田，神火在你经脉中流转！', 0xffd54f),
+        createDialogue('剑仙', '这...这力量！太强大了！', 0x4fc3f7, '⚔'),
+        createDialogue('火神残魂', '记住...火焰的真意，不在于毁灭，而在于守护...去吧！', 0xff7043, '🔥')
+      ], [createReward('spirit', 200), createReward('attack', 20), createReward('maxMana', 50)], { isKeyStory: true })
+    ],
     levels: [
       createLevel('ch4_level1', '熔岩边缘', '进入焚天熔岩外围', 'story', { x: 180, y: 200 }, 10, [createReward('exp', 150), createReward('gold', 200)], {
         storyDialogues: [
@@ -268,7 +333,8 @@ export const CHAPTERS: Chapter[] = [
         ]
       }),
       createLevel('ch4_level5', '火神考验', '接受火神的最终考验', 'boss', { x: 740, y: 250 }, 12, [createReward('exp', 400), createReward('gold', 800), createReward('spirit', 100)], {
-        stageId: 5
+        stageId: 5,
+        victoryDialogueNodeId: 'ch4_boss_victory'
       })
     ],
     completionRewards: [
@@ -307,6 +373,31 @@ export const CHAPTERS: Chapter[] = [
       createDialogue('旁白', '第五章 · 天外魔境 完成！', 0xffd54f),
       createDialogue('旁白', '恭喜通关！感谢你的游玩！', 0x4fc3f7)
     ],
+    dialogueNodes: [
+      createDialogueNode('ch5_boss_victory', 'boss_victory', [
+        createDialogue('旁白', '天魔发出撕心裂肺的惨叫，庞大的身躯开始崩解...', 0xb0bec5),
+        createDialogue('天魔', '不...不可能...我怎么会输...', 0x880e4f, '👹'),
+        createDialogue('剑仙', '天魔！你的恶行到此为止！', 0x4fc3f7, '⚔'),
+        createDialogue('旁白', '万千道剑气从你体内迸发，将天魔彻底湮灭！', 0xffd54f),
+        createDialogue('上古剑仙', '好！好！好！', 0xffd54f, '👑'),
+        createDialogue('火神残魂', '痛快！真是痛快！', 0xff7043, '🔥'),
+        createDialogue('封印守护者', '千年了...终于...自由了...', 0xba68c8, '👻'),
+        createDialogue('旁白', '一道道身影从虚空中浮现——是历代陨落的仙人们！', 0xb0bec5),
+        createDialogue('众仙', '多谢小友！我等终于得以安息！', 0xffd54f),
+        createDialogue('旁白', '天外魔境的魔气消散，天空重现光明！', 0xffd54f),
+        createDialogue('师尊', '（传音）徒儿！你做到了！你成为了新的剑仙！', 0x81c784, '👴'),
+        createDialogue('剑仙', '各位前辈请放心...从今往后，我会守护这三界苍生！', 0x4fc3f7, '⚔'),
+        createDialogue('旁白', '你高举仙剑，万丈金光从你身上迸发，照耀三界！', 0xffd54f)
+      ], [
+        createReward('gold', 2000),
+        createReward('spirit', 500),
+        createReward('exp', 1000),
+        createReward('attack', 50),
+        createReward('defense', 50),
+        createReward('maxHealth', 200),
+        createReward('maxMana', 100)
+      ], { isKeyStory: true })
+    ],
     levels: [
       createLevel('ch5_level1', '魔境入口', '踏入天外魔境', 'story', { x: 160, y: 220 }, 13, [createReward('exp', 200), createReward('gold', 300)], {
         storyDialogues: [
@@ -334,7 +425,8 @@ export const CHAPTERS: Chapter[] = [
         ]
       }),
       createLevel('ch5_level5', '天魔', '与天魔的最终决战', 'boss', { x: 720, y: 250 }, 15, [createReward('exp', 500), createReward('gold', 1000), createReward('spirit', 150)], {
-        stageId: 5
+        stageId: 5,
+        victoryDialogueNodeId: 'ch5_boss_victory'
       })
     ],
     completionRewards: [
@@ -366,4 +458,9 @@ export function getNextChapter(currentChapterId: string): Chapter | undefined {
   const current = getChapterById(currentChapterId)
   if (!current) return undefined
   return getChapterByNumber(current.chapterNumber + 1)
+}
+
+export function getDialogueNodeById(chapterId: string, nodeId: string): ChapterDialogueNode | undefined {
+  const chapter = getChapterById(chapterId)
+  return chapter?.dialogueNodes.find(n => n.id === nodeId)
 }

@@ -1,5 +1,5 @@
-import type { GameSave, ChapterProgress, Chapter, ChapterLevel, ChapterReward, ChapterReviewData } from '../types'
-import { CHAPTERS, getChapterById, getChapterByNumber, getNextChapter } from '../data/chapterData'
+import type { GameSave, ChapterProgress, Chapter, ChapterLevel, ChapterReward, ChapterReviewData, ChapterDialogueNode } from '../types'
+import { CHAPTERS, getChapterById, getChapterByNumber, getNextChapter, getDialogueNodeById, getLevelById } from '../data/chapterData'
 import { SaveManager } from './SaveManager'
 
 export class ChapterManager {
@@ -19,6 +19,7 @@ export class ChapterManager {
       completedChapterIds: [],
       completedLevelIds: [],
       claimedRewards: [],
+      triggeredDialogueNodeIds: [],
       chapterStates: {}
     }
   }
@@ -48,7 +49,8 @@ export class ChapterManager {
       chapterStates: validatedStates,
       completedChapterIds: chapter.completedChapterIds || [],
       completedLevelIds: chapter.completedLevelIds || [],
-      claimedRewards: chapter.claimedRewards || []
+      claimedRewards: chapter.claimedRewards || [],
+      triggeredDialogueNodeIds: chapter.triggeredDialogueNodeIds || []
     }
   }
 
@@ -468,5 +470,52 @@ export class ChapterManager {
       treasure: '💎 宝物'
     }
     return `${labels[reward.type]} +${reward.value}`
+  }
+
+  getDialogueNodeById(chapterId: string, nodeId: string): ChapterDialogueNode | undefined {
+    return getDialogueNodeById(chapterId, nodeId)
+  }
+
+  isDialogueNodeTriggered(save: GameSave, nodeId: string): boolean {
+    return save.chapter?.triggeredDialogueNodeIds?.includes(nodeId) || false
+  }
+
+  shouldTriggerVictoryDialogue(save: GameSave, chapterId: string, levelId: string): ChapterDialogueNode | null {
+    const level = getLevelById(chapterId, levelId)
+    if (!level || !level.victoryDialogueNodeId) return null
+    
+    if (this.isDialogueNodeTriggered(save, level.victoryDialogueNodeId)) return null
+    
+    return this.getDialogueNodeById(chapterId, level.victoryDialogueNodeId) || null
+  }
+
+  markDialogueNodeTriggered(save: GameSave, nodeId: string): void {
+    if (!save.chapter) return
+    if (!save.chapter.triggeredDialogueNodeIds) {
+      save.chapter.triggeredDialogueNodeIds = []
+    }
+    if (!save.chapter.triggeredDialogueNodeIds.includes(nodeId)) {
+      save.chapter.triggeredDialogueNodeIds.push(nodeId)
+      SaveManager.getInstance().saveGame(save)
+    }
+  }
+
+  applyDialogueNodeRewards(save: GameSave, node: ChapterDialogueNode): ChapterReward[] {
+    if (!node.rewards || node.rewards.length === 0) return []
+    const rewards: ChapterReward[] = []
+    
+    node.rewards.forEach(reward => {
+      const applied = this.applyReward(save, reward)
+      if (applied) {
+        rewards.push(applied)
+      }
+    })
+    
+    SaveManager.getInstance().saveGame(save)
+    return rewards
+  }
+
+  getVictoryDialogueNodeForLevel(save: GameSave, chapterId: string, levelId: string): ChapterDialogueNode | null {
+    return this.shouldTriggerVictoryDialogue(save, chapterId, levelId)
   }
 }

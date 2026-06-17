@@ -1,25 +1,33 @@
 import Phaser from 'phaser'
-import type { BattleResult, Player, EnemyDrop } from '../types'
+import type { BattleResult, Player, EnemyDrop, ChapterReward } from '../types'
 import { SaveManager } from '../managers/SaveManager'
+import { ChapterManager } from '../managers/ChapterManager'
 import { STAGES } from '../data/gameData'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { getHerbById } from '../data/alchemyData'
 
 export class ResultScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
+  private chapterManager = ChapterManager.getInstance()
   private result!: BattleResult
   private leveledUp!: boolean
   private levels!: number
   private player!: Player
+  private chapterRewards: ChapterReward[] = []
+  private fromChapterVictory = false
+  private chapterId?: string
 
   constructor() {
     super({ key: 'ResultScene' })
   }
 
-  init(data: { result: BattleResult; leveledUp: boolean; levels: number }): void {
+  init(data: { result: BattleResult; leveledUp: boolean; levels: number; chapterRewards?: ChapterReward[]; fromChapterVictory?: boolean; chapterId?: string }): void {
     this.result = data.result
     this.leveledUp = data.leveledUp
     this.levels = data.levels
+    this.chapterRewards = data.chapterRewards || []
+    this.fromChapterVictory = data.fromChapterVictory || false
+    this.chapterId = data.chapterId
     const save = this.saveManager.loadGame()!
     this.player = save.player
 
@@ -50,6 +58,7 @@ export class ResultScene extends Phaser.Scene {
     const hasSpecialDrops = this.result.victory && this.result.specialDrops && this.result.specialDrops.length > 0
     const hasStats = this.result.victory && this.result.statistics && this.result.statistics.turnsElapsed > 0
     const hasPhaseTransitions = this.result.victory && this.result.statistics && this.result.statistics.phaseTransitions.length > 0
+    const hasChapterRewards = this.result.victory && this.chapterRewards && this.chapterRewards.length > 0
 
     const panelWidth = 560
     let panelHeight = 480
@@ -58,6 +67,7 @@ export class ResultScene extends Phaser.Scene {
     if (hasSpecialDrops) panelHeight += 80
     if (hasStats) panelHeight += 120
     if (hasPhaseTransitions) panelHeight += 60
+    if (hasChapterRewards) panelHeight += 40 + this.chapterRewards.length * 35
     panelHeight = Math.min(panelHeight, height - 100)
     const panelX = width / 2
     const panelY = height / 2
@@ -419,7 +429,43 @@ export class ResultScene extends Phaser.Scene {
       contentY = levelUpY + 40
     }
 
-    const currentInfo = this.add.text(x, contentY + 10,
+    let hasChapterRewards = this.chapterRewards && this.chapterRewards.length > 0
+    let chapterRewardsY = contentY + 10
+
+    if (hasChapterRewards) {
+      const chapterRewardTitle = this.add.text(x, chapterRewardsY, '📜 章节奖励：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#ff9800',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: chapterRewardTitle,
+        alpha: 1,
+        duration: 400,
+        delay: delayBase + 400
+      })
+
+      this.chapterRewards.forEach((reward, idx) => {
+        const ry = chapterRewardsY + 30 + idx * 30
+        const rewardLabel = this.chapterManager.getRewardLabel(reward)
+        const rewardText = this.add.text(x, ry, rewardLabel, {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '18px',
+          color: '#ffcc80'
+        }).setOrigin(0.5).setAlpha(0)
+        this.tweens.add({
+          targets: rewardText,
+          alpha: 1,
+          duration: 400,
+          delay: delayBase + 500 + idx * 150
+        })
+      })
+      chapterRewardsY = chapterRewardsY + 30 + this.chapterRewards.length * 30 + 15
+      delayBase += 300
+    }
+
+    const currentInfo = this.add.text(x, hasChapterRewards ? chapterRewardsY : contentY + 10,
       `当前等级: Lv.${this.player.level}  |  经验: ${this.player.exp}/${this.player.expToNext}`,
       {
         fontFamily: '"Microsoft YaHei", serif',
@@ -519,7 +565,7 @@ export class ResultScene extends Phaser.Scene {
     const spacing = 140
     const buttons = this.result.victory
       ? [
-          { label: '下一关', color: 0x4fc3f7, action: () => this.nextStage() },
+          { label: this.fromChapterVictory ? '返回地图' : '下一关', color: 0x4fc3f7, action: () => this.nextStage() },
           { label: '返回主菜单', color: 0x78909c, action: () => this.goToMenu() }
         ]
       : [
@@ -602,8 +648,12 @@ export class ResultScene extends Phaser.Scene {
   private nextStage(): void {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
-      const nextStageId = Math.min(this.result.stageId + 1, STAGES.length)
-      this.scene.start('BattleScene', { stageId: nextStageId })
+      if (this.fromChapterVictory && this.chapterId) {
+        this.scene.start('ChapterMapScene', { chapterId: this.chapterId })
+      } else {
+        const nextStageId = Math.min(this.result.stageId + 1, STAGES.length)
+        this.scene.start('BattleScene', { stageId: nextStageId })
+      }
     })
   }
 

@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { Player, Enemy, Stage, Skill, BattleResult, SpiritBeast, SpiritBeastSkill, ChapterReward, ElementType, EnemySpecialSkill, EnemyDrop, BattleStatistics } from '../types'
+import type { Player, Enemy, Stage, Skill, BattleResult, SpiritBeast, SpiritBeastSkill, ChapterReward, ChapterDialogueNode, ElementType, EnemySpecialSkill, EnemyDrop, BattleStatistics } from '../types'
 import { STAGES } from '../data/gameData'
 import { SaveManager } from '../managers/SaveManager'
 import { SkillSystem } from '../managers/SkillSystem'
@@ -1462,8 +1462,10 @@ export class BattleScene extends Phaser.Scene {
     let chapterRewards: ChapterReward[] = []
     let shouldShowClosingStory = false
     let shouldShowReview = false
+    let victoryDialogueNode: ChapterDialogueNode | null = null
 
     if (this.isChapterBattle && this.chapterId && this.levelId) {
+      victoryDialogueNode = this.chapterManager.getVictoryDialogueNodeForLevel(save, this.chapterId, this.levelId)
       shouldShowClosingStory = this.chapterManager.shouldShowClosingStory(save, this.chapterId)
       chapterRewards = this.chapterManager.completeLevel(save, this.chapterId, this.levelId, shouldShowClosingStory)
       shouldShowReview = this.chapterManager.isChapterCompleted(save, this.chapterId)
@@ -1479,7 +1481,17 @@ export class BattleScene extends Phaser.Scene {
       this.cameras.main.fadeOut(500)
       this.time.delayedCall(500, () => {
         if (this.isChapterBattle && this.chapterId && this.levelId) {
-          if (shouldShowClosingStory) {
+          if (victoryDialogueNode) {
+            this.scene.start('StoryScene', {
+              chapterId: this.chapterId,
+              isVictoryStory: true,
+              victoryDialogueNodeId: victoryDialogueNode.id,
+              battleResult: result,
+              chapterRewards,
+              leveledUp: levelResult.leveledUp,
+              levels: levelResult.levels
+            })
+          } else if (shouldShowClosingStory) {
             this.scene.start('StoryScene', {
               chapterId: this.chapterId,
               isClosingStory: true

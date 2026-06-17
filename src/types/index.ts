@@ -837,6 +837,15 @@ export interface ChapterReward {
   itemName?: string
 }
 
+export interface ChapterDialogueNode {
+  id: string
+  triggerType: 'boss_victory' | 'elite_victory' | 'stage_clear' | 'chapter_milestone'
+  dialogues: StoryDialogue[]
+  rewards?: ChapterReward[]
+  nextNodeId?: string
+  isKeyStory?: boolean
+}
+
 export interface ChapterLevel {
   id: string
   name: string
@@ -844,6 +853,7 @@ export interface ChapterLevel {
   type: 'battle' | 'story' | 'boss'
   stageId?: number
   storyDialogues?: StoryDialogue[]
+  victoryDialogueNodeId?: string
   position: { x: number; y: number }
   requiredLevel: number
   rewards: ChapterReward[]
@@ -868,6 +878,7 @@ export interface Chapter {
   completionRewards: ChapterReward[]
   openingStory: StoryDialogue[]
   closingStory: StoryDialogue[]
+  dialogueNodes: ChapterDialogueNode[]
   mapImage?: string
 }
 
@@ -877,6 +888,7 @@ export interface ChapterProgress {
   completedChapterIds: string[]
   completedLevelIds: string[]
   claimedRewards: string[]
+  triggeredDialogueNodeIds: string[]
   chapterStates: Record<string, {
     status: ChapterStatus
     currentLevelIndex: number
