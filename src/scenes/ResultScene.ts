@@ -6,7 +6,6 @@ import { ChapterManager } from '../managers/ChapterManager'
 import { STAGES } from '../data/gameData'
 import { AlchemyManager } from '../managers/AlchemyManager'
 import { getHerbById } from '../data/alchemyData'
-import { SkillSystem } from '../managers/SkillSystem'
 
 export class ResultScene extends Phaser.Scene {
   private saveManager = SaveManager.getInstance()
@@ -773,12 +772,15 @@ export class ResultScene extends Phaser.Scene {
     save.player.gold -= config.goldCost
     save.player.spirit -= config.spiritCost
 
+    this.saveManager.recalcPlayerStatsFromSave(save)
+
     const recoverHealth = Math.floor(save.player.maxHealth * config.healthRecoverPercent)
     save.player.health = Math.min(save.player.maxHealth, recoverHealth)
     save.player.mana = save.player.maxMana
-    SkillSystem.fullRestore(save.player)
+    save.player.skills.forEach((s: any) => {
+      s.currentCooldown = 0
+    })
 
-    this.saveManager.recalcPlayerStatsFromSave(save)
     this.saveManager.saveGame(save)
 
     this.cameras.main.fadeOut(400)
