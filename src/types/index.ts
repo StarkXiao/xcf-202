@@ -1,5 +1,26 @@
 export type ElementType = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'none'
 
+export type SkillBranchType = 'power' | 'speed' | 'efficiency' | 'balance'
+
+export interface SkillBranch {
+  id: string
+  name: string
+  description: string
+  type: SkillBranchType
+  unlockLevel: number
+  icon: string
+  color: number
+  damageBonus: number
+  cooldownReduction: number
+  manaCostReduction: number
+}
+
+export interface SkillLevelBonus {
+  damageIncrease: number
+  manaCostIncrease: number
+  cooldownChange: number
+}
+
 export interface Skill {
   id: string
   name: string
@@ -12,6 +33,27 @@ export interface Skill {
   color: number
   icon: string
   element?: ElementType
+  level: number
+  maxLevel: number
+  exp: number
+  expToNext: number
+  branches: SkillBranch[]
+  selectedBranchIds: string[]
+  branchUnlockedLevels: number[]
+}
+
+export interface SkillUpgradeResult {
+  success: boolean
+  leveledUp: boolean
+  newLevel?: number
+  branchesAvailable?: SkillBranch[]
+  message: string
+}
+
+export interface SkillBranchSelectResult {
+  success: boolean
+  branch?: SkillBranch
+  message: string
 }
 
 export interface Treasure {

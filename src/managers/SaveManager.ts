@@ -1,4 +1,4 @@
-import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus, EquipmentBonus, MeridianBonus, AchievementBonus } from '../types'
+import type { GameSave, Player, Skill, Treasure, PermanentStatsBonus, EquipmentBonus, MeridianBonus, AchievementBonus, SkillBranch } from '../types'
 import { INITIAL_SKILLS, INITIAL_TREASURES } from '../data/gameData'
 import { calculateTreasureResonance } from '../data/resonanceData'
 import { SectManager } from './SectManager'
@@ -199,6 +199,93 @@ export class SaveManager {
     }
   }
 
+  private createSkillBranches(skillId: string, baseColor: number): SkillBranch[] {
+    return [
+      {
+        id: `${skillId}_power_3`,
+        name: '锋锐',
+        description: '专注于杀伤力，大幅提升技能伤害',
+        type: 'power',
+        unlockLevel: 3,
+        icon: '💥',
+        color: 0xff5722,
+        damageBonus: 0.3,
+        cooldownReduction: 0,
+        manaCostReduction: 0
+      },
+      {
+        id: `${skillId}_efficiency_3`,
+        name: '凝练',
+        description: '凝练灵气，降低技能灵气消耗',
+        type: 'efficiency',
+        unlockLevel: 3,
+        icon: '💠',
+        color: 0x4fc3f7,
+        damageBonus: 0,
+        cooldownReduction: 0,
+        manaCostReduction: 0.25
+      },
+      {
+        id: `${skillId}_speed_6`,
+        name: '疾风',
+        description: '剑走疾风，大幅缩短冷却时间',
+        type: 'speed',
+        unlockLevel: 6,
+        icon: '🌀',
+        color: 0x81c784,
+        damageBonus: 0,
+        cooldownReduction: 0.35,
+        manaCostReduction: 0
+      },
+      {
+        id: `${skillId}_balance_6`,
+        name: '混元',
+        description: '混元调和，全面提升各项属性',
+        type: 'balance',
+        unlockLevel: 6,
+        icon: '☯',
+        color: 0xba68c8,
+        damageBonus: 0.15,
+        cooldownReduction: 0.15,
+        manaCostReduction: 0.1
+      }
+    ]
+  }
+
+  private validateSkill(skill: any, index: number): Skill {
+    const initialSkill = INITIAL_SKILLS[index]
+    const baseColor = skill.color || (initialSkill?.color ?? 0xffffff)
+    const baseId = skill.id || (initialSkill?.id ?? `skill_${index}`)
+
+    return {
+      id: skill.id || initialSkill?.id || `skill_${index}`,
+      name: skill.name || initialSkill?.name || '技能',
+      description: skill.description || initialSkill?.description || '',
+      damage: skill.damage ?? initialSkill?.damage ?? 10,
+      cooldown: skill.cooldown ?? initialSkill?.cooldown ?? 0,
+      currentCooldown: skill.currentCooldown ?? 0,
+      manaCost: skill.manaCost ?? initialSkill?.manaCost ?? 0,
+      unlockLevel: skill.unlockLevel ?? initialSkill?.unlockLevel ?? 1,
+      color: skill.color ?? initialSkill?.color ?? 0xffffff,
+      icon: skill.icon ?? initialSkill?.icon ?? '⚔',
+      element: skill.element ?? initialSkill?.element,
+      level: skill.level ?? 1,
+      maxLevel: skill.maxLevel ?? 10,
+      exp: skill.exp ?? 0,
+      expToNext: skill.expToNext ?? Math.floor(50 * Math.pow(1.5, (skill.level ?? 1) - 1)),
+      branches: skill.branches ?? this.createSkillBranches(baseId, baseColor),
+      selectedBranchIds: skill.selectedBranchIds ?? [],
+      branchUnlockedLevels: skill.branchUnlockedLevels ?? [3, 6]
+    }
+  }
+
+  private validateSkills(skills: any[]): Skill[] {
+    if (!skills || skills.length === 0) {
+      return JSON.parse(JSON.stringify(INITIAL_SKILLS))
+    }
+    return skills.map((skill, index) => this.validateSkill(skill, index))
+  }
+
   private validateSave(save: GameSave): GameSave | null {
     if (!save || !save.player) return null
     const requiredFields: (keyof Player)[] = ['level', 'health', 'maxHealth', 'attack', 'defense', 'skills', 'treasures']
@@ -208,6 +295,8 @@ export class SaveManager {
 
     if (save.player.critRate === undefined) save.player.critRate = 0
     if (save.player.critDamage === undefined) save.player.critDamage = 0.5
+
+    save.player.skills = this.validateSkills(save.player.skills)
 
     const sectManager = SectManager.getInstance()
     if (!save.sect) {

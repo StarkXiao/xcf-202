@@ -6,7 +6,8 @@ import type {
   BreakthroughResult,
   MeridianRealm,
   Player,
-  Skill
+  Skill,
+  SkillBranch
 } from '../types'
 import {
   MERIDIAN_REALMS,
@@ -134,6 +135,81 @@ export class MeridianManager {
     return { can: true, reason: '' }
   }
 
+  private createSkillBranches(skillId: string, baseColor: number): SkillBranch[] {
+    return [
+      {
+        id: `${skillId}_power_3`,
+        name: '锋锐',
+        description: '专注于杀伤力，大幅提升技能伤害',
+        type: 'power',
+        unlockLevel: 3,
+        icon: '💥',
+        color: 0xff5722,
+        damageBonus: 0.3,
+        cooldownReduction: 0,
+        manaCostReduction: 0
+      },
+      {
+        id: `${skillId}_efficiency_3`,
+        name: '凝练',
+        description: '凝练灵气，降低技能灵气消耗',
+        type: 'efficiency',
+        unlockLevel: 3,
+        icon: '💠',
+        color: 0x4fc3f7,
+        damageBonus: 0,
+        cooldownReduction: 0,
+        manaCostReduction: 0.25
+      },
+      {
+        id: `${skillId}_speed_6`,
+        name: '疾风',
+        description: '剑走疾风，大幅缩短冷却时间',
+        type: 'speed',
+        unlockLevel: 6,
+        icon: '🌀',
+        color: 0x81c784,
+        damageBonus: 0,
+        cooldownReduction: 0.35,
+        manaCostReduction: 0
+      },
+      {
+        id: `${skillId}_balance_6`,
+        name: '混元',
+        description: '混元调和，全面提升各项属性',
+        type: 'balance',
+        unlockLevel: 6,
+        icon: '☯',
+        color: 0xba68c8,
+        damageBonus: 0.15,
+        cooldownReduction: 0.15,
+        manaCostReduction: 0.1
+      }
+    ]
+  }
+
+  private buildMeridianSkill(skillUnlock: any): Skill {
+    return {
+      id: skillUnlock.id,
+      name: skillUnlock.name,
+      description: skillUnlock.description,
+      damage: skillUnlock.damage,
+      cooldown: skillUnlock.cooldown,
+      currentCooldown: 0,
+      manaCost: skillUnlock.manaCost,
+      unlockLevel: 1,
+      color: skillUnlock.color,
+      icon: skillUnlock.icon,
+      level: 1,
+      maxLevel: 10,
+      exp: 0,
+      expToNext: 50,
+      branches: this.createSkillBranches(skillUnlock.id, skillUnlock.color),
+      selectedBranchIds: [],
+      branchUnlockedLevels: [3, 6]
+    }
+  }
+
   activateNode(meridian: MeridianData, templateId: string, player: Player): { success: boolean; message: string; unlockedSkill?: Skill } {
     const check = this.canActivateNode(meridian, templateId, player)
     if (!check.can) {
@@ -152,18 +228,7 @@ export class MeridianManager {
       const skillUnlock = MERIDIAN_SKILL_UNLOCKS.find((s) => s.id === template.unlockSkillId)
       if (skillUnlock && !meridian.unlockedSkillIds.includes(template.unlockSkillId)) {
         meridian.unlockedSkillIds.push(template.unlockSkillId)
-        unlockedSkill = {
-          id: skillUnlock.id,
-          name: skillUnlock.name,
-          description: skillUnlock.description,
-          damage: skillUnlock.damage,
-          cooldown: skillUnlock.cooldown,
-          currentCooldown: 0,
-          manaCost: skillUnlock.manaCost,
-          unlockLevel: 1,
-          color: skillUnlock.color,
-          icon: skillUnlock.icon
-        }
+        unlockedSkill = this.buildMeridianSkill(skillUnlock)
       }
     }
 
@@ -316,19 +381,7 @@ export class MeridianManager {
       if (!player.skills.find((s) => s.id === skillId)) {
         const skillUnlock = MERIDIAN_SKILL_UNLOCKS.find((s) => s.id === skillId)
         if (skillUnlock) {
-          const skill: Skill = {
-            id: skillUnlock.id,
-            name: skillUnlock.name,
-            description: skillUnlock.description,
-            damage: skillUnlock.damage,
-            cooldown: skillUnlock.cooldown,
-            currentCooldown: 0,
-            manaCost: skillUnlock.manaCost,
-            unlockLevel: 1,
-            color: skillUnlock.color,
-            icon: skillUnlock.icon
-          }
-          newSkills.push(skill)
+          newSkills.push(this.buildMeridianSkill(skillUnlock))
         }
       }
     }

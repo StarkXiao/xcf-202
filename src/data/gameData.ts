@@ -1,4 +1,59 @@
-import type { Skill, Treasure, Stage, Enemy, ElementType, EnemySpecialSkill, BossPhase, EnemyDrop } from '../types'
+import type { Skill, Treasure, Stage, Enemy, ElementType, EnemySpecialSkill, BossPhase, EnemyDrop, SkillBranch } from '../types'
+
+const createSkillBranches = (skillId: string, baseColor: number): SkillBranch[] => [
+  {
+    id: `${skillId}_power_3`,
+    name: '锋锐',
+    description: '专注于杀伤力，大幅提升技能伤害',
+    type: 'power',
+    unlockLevel: 3,
+    icon: '💥',
+    color: 0xff5722,
+    damageBonus: 0.3,
+    cooldownReduction: 0,
+    manaCostReduction: 0
+  },
+  {
+    id: `${skillId}_efficiency_3`,
+    name: '凝练',
+    description: '凝练灵气，降低技能灵气消耗',
+    type: 'efficiency',
+    unlockLevel: 3,
+    icon: '💠',
+    color: 0x4fc3f7,
+    damageBonus: 0,
+    cooldownReduction: 0,
+    manaCostReduction: 0.25
+  },
+  {
+    id: `${skillId}_speed_6`,
+    name: '疾风',
+    description: '剑走疾风，大幅缩短冷却时间',
+    type: 'speed',
+    unlockLevel: 6,
+    icon: '🌀',
+    color: 0x81c784,
+    damageBonus: 0,
+    cooldownReduction: 0.35,
+    manaCostReduction: 0
+  },
+  {
+    id: `${skillId}_balance_6`,
+    name: '混元',
+    description: '混元调和，全面提升各项属性',
+    type: 'balance',
+    unlockLevel: 6,
+    icon: '☯',
+    color: 0xba68c8,
+    damageBonus: 0.15,
+    cooldownReduction: 0.15,
+    manaCostReduction: 0.1
+  }
+]
+
+const getExpToNext = (level: number): number => {
+  return Math.floor(50 * Math.pow(1.5, level - 1))
+}
 
 export const INITIAL_SKILLS: Skill[] = [
   {
@@ -12,7 +67,14 @@ export const INITIAL_SKILLS: Skill[] = [
     unlockLevel: 1,
     color: 0x4fc3f7,
     icon: '⚔',
-    element: 'metal'
+    element: 'metal',
+    level: 1,
+    maxLevel: 10,
+    exp: 0,
+    expToNext: getExpToNext(1),
+    branches: createSkillBranches('sword_strike', 0x4fc3f7),
+    selectedBranchIds: [],
+    branchUnlockedLevels: [3, 6]
   },
   {
     id: 'thunder_sword',
@@ -25,7 +87,14 @@ export const INITIAL_SKILLS: Skill[] = [
     unlockLevel: 2,
     color: 0xffeb3b,
     icon: '⚡',
-    element: 'metal'
+    element: 'metal',
+    level: 1,
+    maxLevel: 10,
+    exp: 0,
+    expToNext: getExpToNext(1),
+    branches: createSkillBranches('thunder_sword', 0xffeb3b),
+    selectedBranchIds: [],
+    branchUnlockedLevels: [3, 6]
   },
   {
     id: 'flame_slash',
@@ -38,7 +107,14 @@ export const INITIAL_SKILLS: Skill[] = [
     unlockLevel: 4,
     color: 0xff5722,
     icon: '🔥',
-    element: 'fire'
+    element: 'fire',
+    level: 1,
+    maxLevel: 10,
+    exp: 0,
+    expToNext: getExpToNext(1),
+    branches: createSkillBranches('flame_slash', 0xff5722),
+    selectedBranchIds: [],
+    branchUnlockedLevels: [3, 6]
   },
   {
     id: 'frost_blade',
@@ -51,7 +127,14 @@ export const INITIAL_SKILLS: Skill[] = [
     unlockLevel: 7,
     color: 0x00bcd4,
     icon: '❄',
-    element: 'water'
+    element: 'water',
+    level: 1,
+    maxLevel: 10,
+    exp: 0,
+    expToNext: getExpToNext(1),
+    branches: createSkillBranches('frost_blade', 0x00bcd4),
+    selectedBranchIds: [],
+    branchUnlockedLevels: [3, 6]
   }
 ]
 

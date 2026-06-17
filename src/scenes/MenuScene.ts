@@ -11,7 +11,7 @@ export class MenuScene extends Phaser.Scene {
   private achievementManager: AchievementManager
   private offlineIncomeManager: OfflineIncomeManager
   private notificationBadge!: Phaser.GameObjects.Text
-  private pendingOfflineIncome: ReturnType<SaveManager['settleOfflineIncome']> | null = null
+  private pendingOfflineIncome: any = null
 
   constructor() {
     super({ key: 'MenuScene' })

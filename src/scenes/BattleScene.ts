@@ -780,6 +780,8 @@ export class BattleScene extends Phaser.Scene {
   private createSkillButton(x: number, y: number, skill: Skill, index: number): Phaser.GameObjects.Container {
     const container = this.add.container(x, y)
     const size = 80
+    const effectiveStats = SkillSystem.getEffectiveStats(skill)
+    const selectedBranches = SkillSystem.getSelectedBranches(skill)
 
     const bg = this.add.graphics()
     const canUse = SkillSystem.canUseSkill(this.player, skill)
@@ -787,6 +789,13 @@ export class BattleScene extends Phaser.Scene {
     bg.fillStyle(bgColor, 0.75)
     bg.lineStyle(2, skill.color, canUse ? 1 : 0.4)
     this.roundedRect(bg, -size / 2, -size / 2, size, size, 10)
+
+    const levelText = this.add.text(-size / 2 + 8, size / 2 - 8, 'Lv.' + skill.level, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '11px',
+      color: '#ffd54f',
+      fontStyle: 'bold'
+    }).setOrigin(0, 1)
 
     const iconText = this.add.text(0, -10, skill.icon, {
       fontFamily: 'serif',
@@ -807,13 +816,35 @@ export class BattleScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(1, 0)
 
-    const manaText = this.add.text(0, size / 2 + 14, '耗蓝 ' + skill.manaCost, {
+    if (skill.currentCooldown > 0) {
+      cooldownText.setText(skill.currentCooldown.toString())
+    }
+
+    const manaText = this.add.text(0, size / 2 + 14, '灵气 ' + effectiveStats.manaCost, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '11px',
-      color: this.player.mana >= skill.manaCost ? '#4fc3f7' : '#ef5350'
+      color: this.player.mana >= effectiveStats.manaCost ? '#4fc3f7' : '#ef5350'
     }).setOrigin(0.5)
 
-    container.add([bg, iconText, nameText, cooldownText, manaText])
+    const damageText = this.add.text(size / 2 - 8, size / 2 - 8, effectiveStats.damage.toString(), {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '11px',
+      color: '#ff8a65',
+      fontStyle: 'bold'
+    }).setOrigin(1, 1)
+
+    if (effectiveStats.cooldown > 0) {
+      const cdTagText = this.add.text(-size / 2 + 8, -size / 2 + 22, 'CD:' + effectiveStats.cooldown, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '10px',
+        color: '#81c784',
+        stroke: '#000000',
+        strokeThickness: 2
+      }).setOrigin(0)
+      container.add(cdTagText)
+    }
+
+    container.add([bg, iconText, nameText, cooldownText, manaText, levelText, damageText])
 
     if (skill.element && skill.element !== 'none') {
       const elementTag = this.add.text(-size / 2 + 6, -size / 2 + 4, ELEMENT_INFO[skill.element].icon + ELEMENT_INFO[skill.element].name, {
@@ -824,6 +855,15 @@ export class BattleScene extends Phaser.Scene {
         strokeThickness: 2
       }).setOrigin(0)
       container.add(elementTag)
+    }
+
+    if (selectedBranches.length > 0) {
+      const branchIcons = selectedBranches.map(b => b.icon).join('')
+      const branchTag = this.add.text(0, -size / 2 - 6, branchIcons, {
+        fontFamily: 'serif',
+        fontSize: '14px'
+      }).setOrigin(0.5)
+      container.add(branchTag)
     }
 
     container.setSize(size, size)
