@@ -253,7 +253,7 @@ export class MeridianScene extends Phaser.Scene {
 
     const bg = this.breakthroughPanel.first as Phaser.GameObjects.Graphics
 
-    const curText = this.add.text(-panelWidth / 2 + 25, -5, `当前: ${curRealm.name}`, {
+    const curText = this.add.text(-panelWidth / 2 + 25, -12, `当前: ${curRealm.name}`, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '18px',
       color: '#' + curRealm.color.toString(16).padStart(6, '0'),
@@ -262,9 +262,9 @@ export class MeridianScene extends Phaser.Scene {
 
     const activated = this.meridianManager.getActivatedCount(this.save.meridian, this.save.meridian.currentRealm)
     const required = Math.ceil(curRealm.maxNodes * 0.6)
-    const progressText = this.add.text(-panelWidth / 2 + 25, 18, `节点进度: ${activated}/${curRealm.maxNodes} (突破需≥${required})`, {
+    const progressText = this.add.text(-panelWidth / 2 + 25, 10, `节点进度: ${activated}/${curRealm.maxNodes} (突破需≥${required})  等级: Lv.${this.player.level}/${nextRealm?.requiredLevel ?? '-'}`, {
       fontFamily: '"Microsoft YaHei", serif',
-      fontSize: '13px',
+      fontSize: '12px',
       color: activated >= required ? '#81c784' : '#ffab91'
     })
 
@@ -281,33 +281,49 @@ export class MeridianScene extends Phaser.Scene {
       return
     }
 
-    const arrow = this.add.text(-30, 0, '→', {
+    let costLine = ''
+    if (nextRealm.breakthroughSpiritCost > 0) costLine += `✨${nextRealm.breakthroughSpiritCost} `
+    if (nextRealm.breakthroughGoldCost > 0) costLine += `💰${nextRealm.breakthroughGoldCost} `
+    if (nextRealm.breakthroughMaterials.length > 0) {
+      costLine += nextRealm.breakthroughMaterials.map(m => `${m.icon}${m.amount}`).join(' ')
+    }
+
+    const costText = this.add.text(-panelWidth / 2 + 25, 28, `消耗: ${costLine}`, {
       fontFamily: '"Microsoft YaHei", serif',
-      fontSize: '28px',
+      fontSize: '11px',
+      color: '#b0bec5'
+    })
+    this.breakthroughPanel.add(costText)
+
+    const arrow = this.add.text(-20, 0, '→', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '24px',
       color: '#e1bee7'
     }).setOrigin(0.5)
 
-    const nextText = this.add.text(20, -8, `目标: ${nextRealm.name}`, {
+    const nextText = this.add.text(10, -10, `目标: ${nextRealm.name}`, {
       fontFamily: '"Microsoft YaHei", serif',
-      fontSize: '16px',
+      fontSize: '15px',
       color: '#' + nextRealm.color.toString(16).padStart(6, '0'),
       fontStyle: 'bold'
     })
 
-    const bonusText = this.add.text(20, 15,
-      `生命+${nextRealm.statBonuses.maxHealth} 灵力+${nextRealm.statBonuses.maxMana} 攻击+${nextRealm.statBonuses.attack} 防御+${nextRealm.statBonuses.defense}`,
-      {
-        fontFamily: '"Microsoft YaHei", serif',
-        fontSize: '12px',
-        color: '#81c784'
-      })
+    let bonusLine = `生命+${nextRealm.statBonuses.maxHealth} 灵力+${nextRealm.statBonuses.maxMana} 攻+${nextRealm.statBonuses.attack} 防+${nextRealm.statBonuses.defense}`
+    if (nextRealm.statBonuses.critRate) bonusLine += ` 暴击+${nextRealm.statBonuses.critRate}%`
+    if (nextRealm.statBonuses.critDamage) bonusLine += ` 暴伤+${nextRealm.statBonuses.critDamage}%`
+
+    const bonusText = this.add.text(10, 12, bonusLine, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '11px',
+      color: '#81c784'
+    })
 
     this.breakthroughPanel.add([arrow, nextText, bonusText])
 
     const btnContainer = this.add.container(panelWidth / 2 - 75, 0)
     const btnWidth = 140
     const btnHeight = 42
-    const check = this.meridianManager.canBreakthrough(this.save.meridian, this.player)
+    const check = this.meridianManager.canBreakthrough(this.save.meridian, this.player, this.save.equipment)
     const canBreak = check.can
     const bonusFromFailures = Math.min(this.save.meridian.breakthroughAttempts * 3, 30)
     const rate = Math.min(nextRealm.breakthroughSuccessRate + bonusFromFailures, 95)
@@ -325,7 +341,7 @@ export class MeridianScene extends Phaser.Scene {
     }).setOrigin(0.5)
 
     const btnCost = this.add.text(0, 12,
-      canBreak ? `✨${nextRealm.breakthroughSpiritCost}  成功率${rate}%` : check.reason.length > 12 ? check.reason.slice(0, 12) + '...' : check.reason,
+      canBreak ? `成功率${rate}%${this.save.meridian.breakthroughAttempts > 0 ? `(+${bonusFromFailures}%)` : ''}` : check.reason.length > 14 ? check.reason.slice(0, 14) + '...' : check.reason,
       {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '11px',
@@ -346,7 +362,7 @@ export class MeridianScene extends Phaser.Scene {
   }
 
   private attemptBreakthrough(): void {
-    const result = this.meridianManager.attemptBreakthrough(this.save.meridian, this.player)
+    const result = this.meridianManager.attemptBreakthrough(this.save.meridian, this.player, this.save.equipment)
 
     const permBonus = this.alchemyManager.getPermanentBonus(this.save.alchemy)
     const equipBonus = this.equipmentManager.calculateEquipmentBonus(this.save.equipment)
@@ -356,7 +372,11 @@ export class MeridianScene extends Phaser.Scene {
     this.save.player = this.player
     this.saveManager.saveGame(this.save)
 
-    this.showBreakthroughResult(result)
+    if (result.success && result.story) {
+      this.showBreakthroughStory(result)
+    } else {
+      this.showBreakthroughResult(result)
+    }
     this.updateResourceTexts()
     this.updateRealmTabs()
     this.updateRealmInfo()
@@ -364,44 +384,494 @@ export class MeridianScene extends Phaser.Scene {
     this.refreshMeridianNodes()
   }
 
+  private showBreakthroughStory(result: any): void {
+    const { width, height } = this.scale
+    const story = result.story
+    const objectsToDestroy: Phaser.GameObjects.GameObject[] = []
+
+    const atmosphereColors: Record<string, number> = {
+      solemn: 0x1a237e,
+      heavenly: 0xffd54f,
+      dangerous: 0xb71c1c,
+      mysterious: 0x4a148c,
+      triumphant: 0xffd54f
+    }
+    const bgColor = atmosphereColors[story.atmosphere] || 0x1a237e
+
+    const overlay = this.add.graphics()
+    overlay.fillStyle(0x000000, 0.92)
+    overlay.fillRect(0, 0, width, height)
+    objectsToDestroy.push(overlay)
+
+    for (let i = 0; i < 80; i++) {
+      const particle = this.add.circle(
+        Math.random() * width,
+        Math.random() * height,
+        Math.random() * 3 + 1,
+        bgColor,
+        0.6 + Math.random() * 0.4
+      )
+      objectsToDestroy.push(particle)
+      this.tweens.add({
+        targets: particle,
+        y: { from: particle.y, to: particle.y - 150 - Math.random() * 200 },
+        x: { from: particle.x, to: particle.x + (Math.random() - 0.5) * 60 },
+        alpha: { from: particle.alpha, to: 0 },
+        scale: { from: 1, to: 0.3 },
+        duration: 2500 + Math.random() * 2000,
+        repeat: -1,
+        delay: Math.random() * 1500
+      })
+    }
+
+    const title = this.add.text(width / 2, height * 0.15, `🌟 ${story.title} 🌟`, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '42px',
+      color: '#' + bgColor.toString(16).padStart(6, '0'),
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setAlpha(0)
+    objectsToDestroy.push(title)
+
+    this.tweens.add({
+      targets: title,
+      alpha: 1,
+      scale: { from: 0.5, to: 1.1 },
+      duration: 800,
+      ease: 'Back.easeOut'
+    })
+
+    const realmInfo = result.newRealm ? this.meridianManager.getRealmInfo(result.newRealm) : null
+    if (realmInfo) {
+      const realmTitle = this.add.text(width / 2, height * 0.24, `—— ${realmInfo.name} ——`, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '28px',
+        color: '#' + realmInfo.color.toString(16).padStart(6, '0'),
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0)
+      objectsToDestroy.push(realmTitle)
+
+      this.tweens.add({
+        targets: realmTitle,
+        alpha: 1,
+        duration: 600,
+        delay: 400
+      })
+    }
+
+    const dialoguePanelW = Math.min(780, width - 80)
+    const dialoguePanelH = 200
+    const dialoguePanelX = (width - dialoguePanelW) / 2
+    const dialoguePanelY = height * 0.42
+
+    const dialogueBg = this.add.graphics()
+    dialogueBg.fillStyle(0x0a0a1a, 0.95)
+    dialogueBg.lineStyle(3, bgColor, 0.8)
+    this.roundedRect(dialogueBg, dialoguePanelX, dialoguePanelY, dialoguePanelW, dialoguePanelH, 16)
+    objectsToDestroy.push(dialogueBg)
+
+    const speakerText = this.add.text(dialoguePanelX + 30, dialoguePanelY + 25, '', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '22px',
+      color: '#ffd54f',
+      fontStyle: 'bold'
+    })
+    objectsToDestroy.push(speakerText)
+
+    const contentText = this.add.text(dialoguePanelX + 30, dialoguePanelY + 65, '', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '20px',
+      color: '#ffffff',
+      wordWrap: { width: dialoguePanelW - 60, useAdvancedWrap: true },
+      lineSpacing: 8
+    })
+    objectsToDestroy.push(contentText)
+
+    const hintText = this.add.text(dialoguePanelX + dialoguePanelW - 30, dialoguePanelY + dialoguePanelH - 25, '点击继续 ▶', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '14px',
+      color: '#78909c'
+    }).setOrigin(1, 0.5).setAlpha(0)
+    objectsToDestroy.push(hintText)
+
+    let currentDialogueIndex = 0
+    let isTyping = false
+    let typingTimer: Phaser.Time.TimerEvent | null = null
+
+    const showDialogue = (index: number) => {
+      if (index >= story.dialogues.length) {
+        this.showBreakthroughStats(result, objectsToDestroy)
+        return
+      }
+
+      const dialogue = story.dialogues[index]
+      speakerText.setText(dialogue.speaker)
+      speakerText.setColor('#' + (dialogue.color || 0xffffff).toString(16).padStart(6, '0'))
+      contentText.setText('')
+      hintText.setAlpha(0)
+      isTyping = true
+
+      let charIndex = 0
+      const fullText = dialogue.text
+
+      if (typingTimer) typingTimer.remove(false)
+      typingTimer = this.time.addEvent({
+        delay: 40,
+        repeat: fullText.length - 1,
+        callback: () => {
+          charIndex++
+          contentText.setText(fullText.slice(0, charIndex))
+          if (charIndex >= fullText.length) {
+            isTyping = false
+            hintText.setAlpha(1)
+            this.tweens.add({
+              targets: hintText,
+              alpha: { from: 0.3, to: 1 },
+              duration: 800,
+              yoyo: true,
+              repeat: -1
+            })
+          }
+        }
+      })
+    }
+
+    const advanceDialogue = () => {
+      if (isTyping) {
+        if (typingTimer) typingTimer.remove(false)
+        const dialogue = story.dialogues[currentDialogueIndex]
+        contentText.setText(dialogue.text)
+        isTyping = false
+        hintText.setAlpha(1)
+        this.tweens.add({
+          targets: hintText,
+          alpha: { from: 0.3, to: 1 },
+          duration: 800,
+          yoyo: true,
+          repeat: -1
+        })
+        return
+      }
+      currentDialogueIndex++
+      showDialogue(currentDialogueIndex)
+    }
+
+    this.time.delayedCall(800, () => showDialogue(0))
+
+    overlay.setInteractive({ useHandCursor: true })
+    overlay.on('pointerdown', advanceDialogue)
+  }
+
+  private showBreakthroughStats(result: any, prevObjects: Phaser.GameObjects.GameObject[]): void {
+    prevObjects.forEach(obj => obj.destroy())
+
+    const { width, height } = this.scale
+    const objectsToDestroy: Phaser.GameObjects.GameObject[] = []
+
+    const overlay = this.add.graphics()
+    overlay.fillStyle(0x000000, 0.88)
+    overlay.fillRect(0, 0, width, height)
+    objectsToDestroy.push(overlay)
+
+    this.cameras.main.flash(800, 255, 215, 0)
+    this.cameras.main.shake(400, 0.01)
+
+    const panelW = 560
+    const realmInfo = result.newRealm ? this.meridianManager.getRealmInfo(result.newRealm) : null
+    const panelColor = realmInfo?.color ?? 0x4fc3f7
+
+    let statCount = 4
+    if (result.statGains?.critRate) statCount++
+    if (result.statGains?.critDamage) statCount++
+
+    const panelH = 340 + statCount * 35
+    const panelX = (width - panelW) / 2
+    const panelY = (height - panelH) / 2
+
+    const panel = this.add.graphics()
+    panel.fillStyle(0x0f0f1e, 0.98)
+    panel.lineStyle(4, panelColor, 1)
+    this.roundedRect(panel, panelX, panelY, panelW, panelH, 20)
+    objectsToDestroy.push(panel)
+
+    const glow = this.add.graphics()
+    glow.lineStyle(6, panelColor, 0.3)
+    this.roundedRect(glow, panelX - 3, panelY - 3, panelW + 6, panelH + 6, 22)
+    objectsToDestroy.push(glow)
+
+    this.tweens.add({
+      targets: glow,
+      alpha: { from: 0.2, to: 0.8 },
+      scale: { from: 0.98, to: 1.02 },
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    })
+
+    const title = this.add.text(width / 2, panelY + 50, '🌟 境界突破 🌟', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '38px',
+      color: '#' + panelColor.toString(16).padStart(6, '0'),
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setAlpha(0)
+    objectsToDestroy.push(title)
+
+    this.tweens.add({
+      targets: title,
+      alpha: 1,
+      scale: { from: 0.4, to: 1.15 },
+      duration: 600,
+      ease: 'Back.easeOut'
+    })
+
+    const realmText = this.add.text(width / 2, panelY + 95, realmInfo ? `成功突破至【${realmInfo.name}】` : '突破成功！', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '24px',
+      color: '#ffd54f',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setAlpha(0)
+    objectsToDestroy.push(realmText)
+
+    this.tweens.add({
+      targets: realmText,
+      alpha: 1,
+      duration: 500,
+      delay: 300
+    })
+
+    const descText = this.add.text(width / 2, panelY + 130, realmInfo?.description || '', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '15px',
+      color: '#b0bec5',
+      wordWrap: { width: panelW - 80 }
+    }).setOrigin(0.5).setAlpha(0)
+    objectsToDestroy.push(descText)
+
+    this.tweens.add({
+      targets: descText,
+      alpha: 1,
+      duration: 500,
+      delay: 500
+    })
+
+    const gainsTitle = this.add.text(width / 2, panelY + 170, '—— 属性跃迁 ——', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#81c784',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setAlpha(0)
+    objectsToDestroy.push(gainsTitle)
+
+    this.tweens.add({
+      targets: gainsTitle,
+      alpha: 1,
+      duration: 400,
+      delay: 700
+    })
+
+    const statLines: { label: string; value: number; unit: string }[] = []
+    if (result.statGains?.maxHealth) statLines.push({ label: '生命上限', value: result.statGains.maxHealth, unit: '' })
+    if (result.statGains?.maxMana) statLines.push({ label: '灵力上限', value: result.statGains.maxMana, unit: '' })
+    if (result.statGains?.attack) statLines.push({ label: '攻击力', value: result.statGains.attack, unit: '' })
+    if (result.statGains?.defense) statLines.push({ label: '防御力', value: result.statGains.defense, unit: '' })
+    if (result.statGains?.critRate) statLines.push({ label: '暴击率', value: result.statGains.critRate, unit: '%' })
+    if (result.statGains?.critDamage) statLines.push({ label: '暴击伤害', value: result.statGains.critDamage, unit: '%' })
+
+    statLines.forEach((stat, idx) => {
+      const y = panelY + 205 + idx * 35
+      const bg = this.add.graphics()
+      bg.fillStyle(0x1a1a2e, 0.7)
+      this.roundedRect(bg, panelX + 60, y - 14, panelW - 120, 28, 6)
+      objectsToDestroy.push(bg)
+
+      const label = this.add.text(panelX + 80, y, stat.label, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '17px',
+        color: '#cfd8dc'
+      }).setOrigin(0, 0.5).setAlpha(0)
+      objectsToDestroy.push(label)
+
+      const value = this.add.text(panelX + panelW - 80, y, `+${stat.value}${stat.unit}`, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '18px',
+        color: '#81c784',
+        fontStyle: 'bold'
+      }).setOrigin(1, 0.5).setAlpha(0)
+      objectsToDestroy.push(value)
+
+      this.tweens.add({
+        targets: [bg, label, value],
+        alpha: 1,
+        x: '+=0',
+        duration: 400,
+        delay: 900 + idx * 150,
+        ease: 'Back.easeOut'
+      })
+    })
+
+    const costY = panelY + 205 + statLines.length * 35 + 15
+    let costStr = ''
+    if (result.costSpent > 0) costStr += `✨${result.costSpent}  `
+    if (result.goldSpent > 0) costStr += `💰${result.goldSpent}  `
+    if (result.materialsSpent?.length > 0) {
+      costStr += result.materialsSpent.map((m: any) => `${m.icon}${m.amount}`).join(' ')
+    }
+
+    const costBg = this.add.graphics()
+    costBg.fillStyle(0x2a2015, 0.6)
+    this.roundedRect(costBg, panelX + 60, costY, panelW - 120, 32, 6)
+    objectsToDestroy.push(costBg)
+
+    const costLabel = this.add.text(panelX + 80, costY + 16, '消耗资源:', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '15px',
+      color: '#b0bec5'
+    }).setOrigin(0, 0.5).setAlpha(0)
+    objectsToDestroy.push(costLabel)
+
+    const costVal = this.add.text(panelX + panelW - 80, costY + 16, costStr, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '16px',
+      color: '#ffd54f',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5).setAlpha(0)
+    objectsToDestroy.push(costVal)
+
+    this.tweens.add({
+      targets: [costBg, costLabel, costVal],
+      alpha: 1,
+      duration: 400,
+      delay: 1000 + statLines.length * 150
+    })
+
+    const btnY = panelY + panelH - 55
+    const closeBtn = this.add.container(width / 2, btnY)
+    const btnBg = this.add.graphics()
+    btnBg.fillStyle(panelColor, 0.85)
+    btnBg.lineStyle(2, panelColor, 1)
+    this.roundedRect(btnBg, -90, -24, 180, 48, 10)
+
+    const btnText = this.add.text(0, 0, '确定', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '22px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5)
+
+    closeBtn.add([btnBg, btnText])
+    closeBtn.setSize(180, 48)
+    closeBtn.setAlpha(0)
+    closeBtn.setInteractive({ useHandCursor: true })
+    closeBtn.on('pointerover', () => this.tweens.add({ targets: closeBtn, scale: 1.08, duration: 150 }))
+    closeBtn.on('pointerout', () => this.tweens.add({ targets: closeBtn, scale: 1, duration: 150 }))
+    closeBtn.on('pointerdown', () => {
+      objectsToDestroy.forEach(o => o.destroy())
+      closeBtn.destroy()
+    })
+    objectsToDestroy.push(closeBtn)
+
+    this.tweens.add({
+      targets: closeBtn,
+      alpha: 1,
+      duration: 400,
+      delay: 1200 + statLines.length * 150,
+      ease: 'Back.easeOut'
+    })
+  }
+
   private showBreakthroughResult(result: any): void {
     const { width, height } = this.scale
+    const objectsToDestroy: Phaser.GameObjects.GameObject[] = []
 
     const overlay = this.add.graphics()
     overlay.fillStyle(0x000000, 0.8)
     overlay.fillRect(0, 0, width, height)
+    objectsToDestroy.push(overlay)
 
+    const isSuccess = result.success
+    const panelColor = isSuccess ? 0x4fc3f7 : 0xef5350
     const panel = this.add.graphics()
     const panelW = 480
-    const panelH = 220
-    panel.fillStyle(result.success ? 0x1a237e : 0x3e1a1a, 0.95)
-    panel.lineStyle(3, result.success ? 0x4fc3f7 : 0xef5350, 1)
+    const panelH = 280
+    panel.fillStyle(isSuccess ? 0x1a237e : 0x3e1a1a, 0.95)
+    panel.lineStyle(3, panelColor, 1)
     this.roundedRect(panel, width / 2 - panelW / 2, height / 2 - panelH / 2, panelW, panelH, 18)
+    objectsToDestroy.push(panel)
 
-    const title = this.add.text(width / 2, height / 2 - 75,
-      result.success ? '🌟 突破成功 🌟' : '💔 突破失败',
+    const title = this.add.text(width / 2, height / 2 - 95,
+      isSuccess ? '🌟 突破成功 🌟' : '💔 突破失败',
       {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '34px',
-        color: result.success ? '#4fc3f7' : '#ef5350',
+        color: '#' + panelColor.toString(16).padStart(6, '0'),
         fontStyle: 'bold'
       }).setOrigin(0.5)
+    objectsToDestroy.push(title)
 
-    const message = this.add.text(width / 2, height / 2 - 5, result.message, {
+    const message = this.add.text(width / 2, height / 2 - 30, result.message, {
       fontFamily: '"Microsoft YaHei", serif',
-      fontSize: '20px',
+      fontSize: '18px',
       color: '#ffffff',
+      align: 'center',
+      wordWrap: { width: 420 },
+      lineSpacing: 6
+    }).setOrigin(0.5)
+    objectsToDestroy.push(message)
+
+    let costStr = ''
+    if (result.costSpent > 0) costStr += `✨灵气: ${result.costSpent}  `
+    if (result.goldSpent > 0) costStr += `💰金币: ${result.goldSpent}  `
+    if (result.materialsSpent?.length > 0) {
+      costStr += '\n' + result.materialsSpent.map((m: any) => `${m.icon}${m.name}: ${m.amount}`).join('  ')
+    }
+
+    const costText = this.add.text(width / 2, height / 2 + 35, costStr || '无消耗', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '15px',
+      color: '#ffd54f',
       align: 'center',
       wordWrap: { width: 420 }
     }).setOrigin(0.5)
+    objectsToDestroy.push(costText)
 
-    const costText = this.add.text(width / 2, height / 2 + 45, `消耗灵气: ✨${result.costSpent}`, {
+    const attemptInfo = this.save.meridian.breakthroughAttempts > 0
+      ? `累计失败 ${this.save.meridian.breakthroughAttempts} 次，下次成功率 +${Math.min(this.save.meridian.breakthroughAttempts * 3, 30)}%`
+      : ''
+
+    if (attemptInfo && !isSuccess) {
+      const attemptText = this.add.text(width / 2, height / 2 + 80, attemptInfo, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '14px',
+        color: '#81c784'
+      }).setOrigin(0.5)
+      objectsToDestroy.push(attemptText)
+    }
+
+    const closeBtn = this.add.container(width / 2, height / 2 + panelH / 2 - 40)
+    const btnBg = this.add.graphics()
+    btnBg.fillStyle(panelColor, 0.85)
+    btnBg.lineStyle(2, panelColor, 1)
+    this.roundedRect(btnBg, -70, -20, 140, 40, 8)
+    const btnText = this.add.text(0, 0, '知道了', {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '18px',
-      color: '#ffd54f'
+      color: '#ffffff',
+      fontStyle: 'bold'
     }).setOrigin(0.5)
+    closeBtn.add([btnBg, btnText])
+    closeBtn.setSize(140, 40)
+    closeBtn.setInteractive({ useHandCursor: true })
+    closeBtn.on('pointerover', () => this.tweens.add({ targets: closeBtn, scale: 1.08, duration: 150 }))
+    closeBtn.on('pointerout', () => this.tweens.add({ targets: closeBtn, scale: 1, duration: 150 }))
+    closeBtn.on('pointerdown', () => {
+      objectsToDestroy.forEach(o => o.destroy())
+      closeBtn.destroy()
+    })
+    objectsToDestroy.push(closeBtn)
 
-    if (result.success) {
+    if (isSuccess) {
       this.cameras.main.flash(600, 255, 215, 0)
       this.tweens.add({
         targets: [title],
@@ -411,14 +881,6 @@ export class MeridianScene extends Phaser.Scene {
         ease: 'Back.easeOut'
       })
     }
-
-    this.time.delayedCall(2200, () => {
-      overlay.destroy()
-      panel.destroy()
-      title.destroy()
-      message.destroy()
-      costText.destroy()
-    })
   }
 
   private createMeridianNodes(width: number, height: number): void {

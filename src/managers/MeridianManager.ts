@@ -7,7 +7,9 @@ import type {
   MeridianRealm,
   Player,
   Skill,
-  SkillBranch
+  SkillBranch,
+  EquipmentData,
+  BreakthroughMaterial
 } from '../types'
 import {
   MERIDIAN_REALMS,
@@ -15,6 +17,7 @@ import {
   MERIDIAN_NODE_TEMPLATES,
   MERIDIAN_SKILL_UNLOCKS
 } from '../data/meridianData'
+import { EquipmentManager } from './EquipmentManager'
 
 export class MeridianManager {
   private static instance: MeridianManager
@@ -239,7 +242,7 @@ export class MeridianManager {
     }
   }
 
-  canBreakthrough(meridian: MeridianData, player: Player): { can: boolean; reason: string } {
+  canBreakthrough(meridian: MeridianData, player: Player, equipment?: EquipmentData): { can: boolean; reason: string } {
     const nextRealm = this.getNextRealm(meridian.currentRealm)
     if (!nextRealm) return { can: false, reason: '已达最高境界' }
 
@@ -263,11 +266,25 @@ export class MeridianManager {
       return { can: false, reason: `灵气不足，需要 ${nextRealmInfo.breakthroughSpiritCost}` }
     }
 
+    if (nextRealmInfo.breakthroughGoldCost > 0 && player.gold < nextRealmInfo.breakthroughGoldCost) {
+      return { can: false, reason: `金币不足，需要 ${nextRealmInfo.breakthroughGoldCost}` }
+    }
+
+    if (equipment && nextRealmInfo.breakthroughMaterials.length > 0) {
+      const equipmentManager = EquipmentManager.getInstance()
+      for (const mat of nextRealmInfo.breakthroughMaterials) {
+        const have = equipmentManager.getMaterialQuantity(equipment, mat.materialId)
+        if (have < mat.amount) {
+          return { can: false, reason: `${mat.name}不足，需要 ${mat.amount}（当前 ${have}）` }
+        }
+      }
+    }
+
     return { can: true, reason: '' }
   }
 
-  attemptBreakthrough(meridian: MeridianData, player: Player): BreakthroughResult {
-    const check = this.canBreakthrough(meridian, player)
+  attemptBreakthrough(meridian: MeridianData, player: Player, equipment?: EquipmentData): BreakthroughResult {
+    const check = this.canBreakthrough(meridian, player, equipment)
     const prevRealm = meridian.currentRealm
     const nextRealm = this.getNextRealm(prevRealm)
 
@@ -276,13 +293,29 @@ export class MeridianManager {
         success: false,
         previousRealm: prevRealm,
         message: check.reason || '无法突破',
-        costSpent: 0
+        costSpent: 0,
+        goldSpent: 0,
+        materialsSpent: []
       }
     }
 
     const nextRealmInfo = this.getRealmInfo(nextRealm)
     const cost = nextRealmInfo.breakthroughSpiritCost
+    const goldCost = nextRealmInfo.breakthroughGoldCost
+    const materialsSpent: BreakthroughMaterial[] = []
+
     player.spirit -= cost
+    if (goldCost > 0) {
+      player.gold -= goldCost
+    }
+
+    if (equipment && nextRealmInfo.breakthroughMaterials.length > 0) {
+      const equipmentManager = EquipmentManager.getInstance()
+      for (const mat of nextRealmInfo.breakthroughMaterials) {
+        equipmentManager.removeMaterial(equipment, mat.materialId, mat.amount)
+        materialsSpent.push({ ...mat })
+      }
+    }
 
     meridian.breakthroughAttempts++
     meridian.lastBreakthroughTime = Date.now()
@@ -302,14 +335,27 @@ export class MeridianManager {
         previousRealm: prevRealm,
         newRealm: nextRealm,
         message: `恭喜突破至【${nextRealmInfo.name}】！`,
-        costSpent: cost
+        costSpent: cost,
+        goldSpent: goldCost,
+        materialsSpent,
+        statGains: {
+          maxHealth: nextRealmInfo.statBonuses.maxHealth,
+          maxMana: nextRealmInfo.statBonuses.maxMana,
+          attack: nextRealmInfo.statBonuses.attack,
+          defense: nextRealmInfo.statBonuses.defense,
+          critRate: nextRealmInfo.statBonuses.critRate,
+          critDamage: nextRealmInfo.statBonuses.critDamage
+        },
+        story: nextRealmInfo.breakthroughStory
       }
     } else {
       return {
         success: false,
         previousRealm: prevRealm,
         message: `突破失败！成功率：${finalRate.toFixed(0)}%，下次成功率提升`,
-        costSpent: cost
+        costSpent: cost,
+        goldSpent: goldCost,
+        materialsSpent
       }
     }
   }

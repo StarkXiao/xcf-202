@@ -1,6 +1,8 @@
 import type { GameSave, ChapterProgress, Chapter, ChapterLevel, ChapterReward, ChapterReviewData, ChapterDialogueNode, SweepResult, ChapterSweepResult } from '../types'
 import { CHAPTERS, getChapterById, getChapterByNumber, getNextChapter, getDialogueNodeById, getLevelById } from '../data/chapterData'
 import { SaveManager } from './SaveManager'
+import { EquipmentManager } from './EquipmentManager'
+import { getMaterialById } from '../data/equipmentData'
 
 export class ChapterManager {
   private static instance: ChapterManager
@@ -339,6 +341,11 @@ export class ChapterManager {
         save.player.maxMana += reward.value
         save.player.mana = Math.min(save.player.mana + reward.value, save.player.maxMana)
         break
+      case 'material':
+        if (reward.itemId) {
+          EquipmentManager.getInstance().addMaterial(save.equipment, reward.itemId, reward.value)
+        }
+        break
       default:
         return null
     }
@@ -458,7 +465,11 @@ export class ChapterManager {
   }
 
   getRewardLabel(reward: ChapterReward): string {
-    const labels: Record<ChapterReward['type'], string> = {
+    if (reward.type === 'material' && reward.itemId) {
+      const mat = getMaterialById(reward.itemId)
+      return `${mat?.icon || '📦'} ${mat?.name || reward.itemId || '材料'} x${reward.value}`
+    }
+    const labels: Record<string, string> = {
       gold: '💰 金币',
       spirit: '✨ 灵气',
       exp: '📚 经验',
@@ -469,7 +480,7 @@ export class ChapterManager {
       skill: '📖 技能',
       treasure: '💎 宝物'
     }
-    return `${labels[reward.type]} +${reward.value}`
+    return `${labels[reward.type] || reward.type} +${reward.value}`
   }
 
   getDialogueNodeById(chapterId: string, nodeId: string): ChapterDialogueNode | undefined {

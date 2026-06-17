@@ -48,7 +48,18 @@ export const FORGE_MATERIALS: ForgeMaterial[] = [
   { id: 'leather', name: '兽皮', description: '妖兽的皮，坚韧耐磨', rarity: 'common', color: 0x8d6e63, icon: '🧵' },
   { id: 'spirit_cloth', name: '灵丝', description: '由灵蚕吐出的丝线', rarity: 'uncommon', color: 0x81c784, icon: '🧶' },
   { id: 'silk', name: '天蚕丝', description: '天蚕丝织成的布料', rarity: 'rare', color: 0x4dd0e1, icon: '🎀' },
-  { id: 'phoenix_feather', name: '凤凰羽', description: '凤凰脱落的羽毛', rarity: 'epic', color: 0xef5350, icon: '🪶' }
+  { id: 'phoenix_feather', name: '凤凰羽', description: '凤凰脱落的羽毛', rarity: 'epic', color: 0xef5350, icon: '🪶' },
+  { id: 'spirit_ore', name: '灵矿', description: '蕴含灵气的矿石，用于境界突破', rarity: 'common', color: 0x4dd0e1, icon: '💎' },
+  { id: 'basic_herb', name: '灵草', description: '天地孕育的灵药，辅助修炼', rarity: 'common', color: 0x66bb6a, icon: '🌿' },
+  { id: 'spirit_crystal', name: '灵晶', description: '高纯度灵气结晶，突破必备', rarity: 'rare', color: 0xba68c8, icon: '✦' },
+  { id: 'moon_grass', name: '月华草', description: '吸收月华而生的仙草', rarity: 'rare', color: 0xce93d8, icon: '🌙' },
+  { id: 'demon_bone', name: '魔骨', description: '强大魔族遗骨，蕴含魔气', rarity: 'epic', color: 0xef5350, icon: '🦴' },
+  { id: 'soul_lotus', name: '幽冥莲', description: '生长在幽冥之地的奇莲', rarity: 'epic', color: 0x7e57c2, icon: '🪷' },
+  { id: 'ghost_iron', name: '冥铁', description: '冥界特产的玄铁，阴气极重', rarity: 'epic', color: 0x546e7a, icon: '⛓' },
+  { id: 'fire_heart_grass', name: '火心草', description: '生长于火山深处的灵草', rarity: 'epic', color: 0xff7043, icon: '🔥' },
+  { id: 'lava_core', name: '熔岩核心', description: '熔岩深处的结晶，蕴含狂暴力量', rarity: 'epic', color: 0xbf360c, icon: '💠' },
+  { id: 'immortal_herb', name: '九转灵芝', description: '传说中的仙草，可活死人肉白骨', rarity: 'legendary', color: 0xffd54f, icon: '🌟' },
+  { id: 'demon_heart', name: '天魔之心', description: '天魔陨落遗留的心脏，力量无穷', rarity: 'legendary', color: 0x4a148c, icon: '💜' }
 ]
 
 export const MATERIAL_DROP_TABLE: Record<number, { materialId: string; chance: number; minAmount: number; maxAmount: number }[]> = {

@@ -92,10 +92,10 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('剑仙', '来得好！正好试试我的御剑之术！', 0x4fc3f7, '⚔')
         ]
       }),
-      createLevel('ch1_level2', '幽谷狼影', '击败拦路的幽狼群', 'battle', { x: 280, y: 280 }, 1, [createReward('exp', 50), createReward('gold', 80)], {
+      createLevel('ch1_level2', '幽谷狼影', '击败拦路的幽狼群', 'battle', { x: 280, y: 280 }, 1, [createReward('exp', 50), createReward('gold', 80), createReward('material', 2, 'spirit_ore', '灵矿')], {
         stageId: 1
       }),
-      createLevel('ch1_level3', '青蛇出没', '在密林深处遭遇青蛇', 'battle', { x: 400, y: 220 }, 2, [createReward('exp', 60), createReward('gold', 100), createReward('spirit', 10)], {
+      createLevel('ch1_level3', '青蛇出没', '在密林深处遭遇青蛇', 'battle', { x: 400, y: 220 }, 2, [createReward('exp', 60), createReward('gold', 100), createReward('spirit', 10), createReward('material', 3, 'basic_herb', '灵草')], {
         stageId: 1
       }),
       createLevel('ch1_level4', '神秘老者', '遇到一位神秘老者指点', 'story', { x: 520, y: 320 }, 2, [createReward('exp', 40), createReward('spirit', 20)], {
@@ -107,7 +107,7 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('旁白', '老者化作一道金光消散，只留下一股精纯的灵气...', 0xb0bec5)
         ]
       }),
-      createLevel('ch1_level5', '谷主之怒', '青冥谷主现身', 'boss', { x: 650, y: 250 }, 3, [createReward('exp', 100), createReward('gold', 200), createReward('spirit', 30)], {
+      createLevel('ch1_level5', '谷主之怒', '青冥谷主现身', 'boss', { x: 650, y: 250 }, 3, [createReward('exp', 100), createReward('gold', 200), createReward('spirit', 30), createReward('material', 5, 'spirit_ore', '灵矿'), createReward('material', 5, 'basic_herb', '灵草')], {
         stageId: 2,
         victoryDialogueNodeId: 'ch1_boss_victory'
       })
@@ -116,7 +116,10 @@ export const CHAPTERS: Chapter[] = [
       createReward('gold', 500),
       createReward('spirit', 100),
       createReward('exp', 200),
-      createReward('attack', 10)
+      createReward('attack', 10),
+      createReward('material', 10, 'spirit_ore', '灵矿'),
+      createReward('material', 10, 'basic_herb', '灵草'),
+      createReward('material', 3, 'spirit_crystal', '灵晶')
     ]
   },
   {
@@ -164,10 +167,10 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('剑仙', '邪魔外道，看剑！', 0x4fc3f7, '⚔')
         ]
       }),
-      createLevel('ch2_level2', '血魔围堵', '击败拦路的血魔', 'battle', { x: 320, y: 280 }, 4, [createReward('exp', 80), createReward('gold', 150), createReward('spirit', 20)], {
+      createLevel('ch2_level2', '血魔围堵', '击败拦路的血魔', 'battle', { x: 320, y: 280 }, 4, [createReward('exp', 80), createReward('gold', 150), createReward('spirit', 20), createReward('material', 3, 'spirit_crystal', '灵晶'), createReward('material', 2, 'basic_herb', '灵草')], {
         stageId: 2
       }),
-      createLevel('ch2_level3', '暗影蝠群', '躲避暗影蝠群的攻击', 'battle', { x: 450, y: 200 }, 5, [createReward('exp', 100), createReward('gold', 180), createReward('spirit', 25)], {
+      createLevel('ch2_level3', '暗影蝠群', '躲避暗影蝠群的攻击', 'battle', { x: 450, y: 200 }, 5, [createReward('exp', 100), createReward('gold', 180), createReward('spirit', 25), createReward('material', 4, 'moon_grass', '月华草')], {
         stageId: 2
       }),
       createLevel('ch2_level4', '魔洞秘辛', '发现血魔的秘密', 'story', { x: 580, y: 300 }, 5, [createReward('exp', 80), createReward('spirit', 40)], {
@@ -181,7 +184,7 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('旁白', '声音渐渐消散，只留下一股精纯的灵力涌入你的体内...', 0xb0bec5)
         ]
       }),
-      createLevel('ch2_level5', '血魔觉醒', '血魔破封而出', 'boss', { x: 720, y: 230 }, 6, [createReward('exp', 200), createReward('gold', 400), createReward('spirit', 60)], {
+      createLevel('ch2_level5', '血魔觉醒', '血魔破封而出', 'boss', { x: 720, y: 230 }, 6, [createReward('exp', 200), createReward('gold', 400), createReward('spirit', 60), createReward('material', 5, 'spirit_crystal', '灵晶'), createReward('material', 5, 'moon_grass', '月华草')], {
         stageId: 3,
         victoryDialogueNodeId: 'ch2_boss_victory'
       })
@@ -190,7 +193,10 @@ export const CHAPTERS: Chapter[] = [
       createReward('gold', 1000),
       createReward('spirit', 200),
       createReward('exp', 400),
-      createReward('defense', 15)
+      createReward('defense', 15),
+      createReward('material', 10, 'spirit_crystal', '灵晶'),
+      createReward('material', 10, 'moon_grass', '月华草'),
+      createReward('material', 5, 'demon_bone', '魔骨')
     ]
   },
   {
@@ -239,10 +245,10 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('剑仙', '区区怨灵，也敢挡我！', 0x4fc3f7, '⚔')
         ]
       }),
-      createLevel('ch3_level2', '怨灵当道', '驱散拦路的怨灵', 'battle', { x: 300, y: 300 }, 7, [createReward('exp', 120), createReward('gold', 200), createReward('spirit', 30)], {
+      createLevel('ch3_level2', '怨灵当道', '驱散拦路的怨灵', 'battle', { x: 300, y: 300 }, 7, [createReward('exp', 120), createReward('gold', 200), createReward('spirit', 30), createReward('material', 3, 'demon_bone', '魔骨')], {
         stageId: 3
       }),
-      createLevel('ch3_level3', '骷髅战将', '击败守护遗迹的骷髅战将', 'battle', { x: 440, y: 220 }, 8, [createReward('exp', 150), createReward('gold', 250), createReward('spirit', 40)], {
+      createLevel('ch3_level3', '骷髅战将', '击败守护遗迹的骷髅战将', 'battle', { x: 440, y: 220 }, 8, [createReward('exp', 150), createReward('gold', 250), createReward('spirit', 40), createReward('material', 4, 'ghost_iron', '冥铁'), createReward('material', 2, 'soul_lotus', '幽冥莲')], {
         stageId: 3
       }),
       createLevel('ch3_level4', '遗迹入口', '找到上古遗迹的入口', 'story', { x: 580, y: 320 }, 8, [createReward('exp', 120), createReward('spirit', 60)], {
@@ -256,7 +262,7 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('旁白', '一股磅礴的剑意涌入你的体内！', 0xffd54f)
         ]
       }),
-      createLevel('ch3_level5', '遗迹守护者', '接受上古剑仙的考验', 'boss', { x: 720, y: 250 }, 9, [createReward('exp', 300), createReward('gold', 600), createReward('spirit', 80)], {
+      createLevel('ch3_level5', '遗迹守护者', '接受上古剑仙的考验', 'boss', { x: 720, y: 250 }, 9, [createReward('exp', 300), createReward('gold', 600), createReward('spirit', 80), createReward('material', 5, 'demon_bone', '魔骨'), createReward('material', 5, 'soul_lotus', '幽冥莲'), createReward('material', 5, 'ghost_iron', '冥铁')], {
         stageId: 4,
         victoryDialogueNodeId: 'ch3_boss_victory'
       })
@@ -265,7 +271,10 @@ export const CHAPTERS: Chapter[] = [
       createReward('gold', 1500),
       createReward('spirit', 300),
       createReward('exp', 600),
-      createReward('maxHealth', 100)
+      createReward('maxHealth', 100),
+      createReward('material', 10, 'demon_bone', '魔骨'),
+      createReward('material', 10, 'ghost_iron', '冥铁'),
+      createReward('material', 5, 'soul_lotus', '幽冥莲')
     ]
   },
   {
@@ -316,10 +325,10 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('剑仙', '来的好！正好试试我的新剑术！', 0x4fc3f7, '⚔')
         ]
       }),
-      createLevel('ch4_level2', '炎魔拦路', '击败拦路的炎魔', 'battle', { x: 320, y: 300 }, 10, [createReward('exp', 180), createReward('gold', 300), createReward('spirit', 50)], {
+      createLevel('ch4_level2', '炎魔拦路', '击败拦路的炎魔', 'battle', { x: 320, y: 300 }, 10, [createReward('exp', 180), createReward('gold', 300), createReward('spirit', 50), createReward('material', 3, 'fire_heart_grass', '火心草')], {
         stageId: 4
       }),
-      createLevel('ch4_level3', '熔岩巨兽', '与熔岩巨兽战斗', 'battle', { x: 460, y: 220 }, 11, [createReward('exp', 220), createReward('gold', 350), createReward('spirit', 60)], {
+      createLevel('ch4_level3', '熔岩巨兽', '与熔岩巨兽战斗', 'battle', { x: 460, y: 220 }, 11, [createReward('exp', 220), createReward('gold', 350), createReward('spirit', 60), createReward('material', 4, 'fire_heart_grass', '火心草'), createReward('material', 2, 'lava_core', '熔岩核心')], {
         stageId: 4
       }),
       createLevel('ch4_level4', '火神遗迹', '发现火神的遗迹', 'story', { x: 600, y: 320 }, 11, [createReward('exp', 180), createReward('spirit', 80)], {
@@ -332,7 +341,7 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('旁白', '神火飞入你的体内，你感到力量在不断增长！', 0xffd54f)
         ]
       }),
-      createLevel('ch4_level5', '火神考验', '接受火神的最终考验', 'boss', { x: 740, y: 250 }, 12, [createReward('exp', 400), createReward('gold', 800), createReward('spirit', 100)], {
+      createLevel('ch4_level5', '火神考验', '接受火神的最终考验', 'boss', { x: 740, y: 250 }, 12, [createReward('exp', 400), createReward('gold', 800), createReward('spirit', 100), createReward('material', 5, 'fire_heart_grass', '火心草'), createReward('material', 5, 'lava_core', '熔岩核心')], {
         stageId: 5,
         victoryDialogueNodeId: 'ch4_boss_victory'
       })
@@ -341,7 +350,10 @@ export const CHAPTERS: Chapter[] = [
       createReward('gold', 2000),
       createReward('spirit', 400),
       createReward('exp', 800),
-      createReward('maxMana', 80)
+      createReward('maxMana', 80),
+      createReward('material', 10, 'fire_heart_grass', '火心草'),
+      createReward('material', 10, 'lava_core', '熔岩核心'),
+      createReward('material', 3, 'immortal_herb', '九转灵芝')
     ]
   },
   {
@@ -408,10 +420,10 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('剑仙', '该认罪的是你们！', 0x4fc3f7, '⚔')
         ]
       }),
-      createLevel('ch5_level2', '天魔使者', '击败天魔使者', 'battle', { x: 300, y: 300 }, 13, [createReward('exp', 250), createReward('gold', 400), createReward('spirit', 80)], {
+      createLevel('ch5_level2', '天魔使者', '击败天魔使者', 'battle', { x: 300, y: 300 }, 13, [createReward('exp', 250), createReward('gold', 400), createReward('spirit', 80), createReward('material', 3, 'immortal_herb', '九转灵芝'), createReward('material', 2, 'demon_heart', '天魔之心')], {
         stageId: 5
       }),
-      createLevel('ch5_level3', '魔龙', '击败天魔坐骑魔龙', 'battle', { x: 440, y: 220 }, 14, [createReward('exp', 300), createReward('gold', 500), createReward('spirit', 100)], {
+      createLevel('ch5_level3', '魔龙', '击败天魔坐骑魔龙', 'battle', { x: 440, y: 220 }, 14, [createReward('exp', 300), createReward('gold', 500), createReward('spirit', 100), createReward('material', 4, 'immortal_herb', '九转灵芝'), createReward('material', 3, 'demon_heart', '天魔之心')], {
         stageId: 5
       }),
       createLevel('ch5_level4', '最终决战', '天魔现身', 'story', { x: 580, y: 320 }, 14, [createReward('exp', 250), createReward('spirit', 120)], {
@@ -424,7 +436,7 @@ export const CHAPTERS: Chapter[] = [
           createDialogue('旁白', '最终决战，即将开始！', 0xffd54f)
         ]
       }),
-      createLevel('ch5_level5', '天魔', '与天魔的最终决战', 'boss', { x: 720, y: 250 }, 15, [createReward('exp', 500), createReward('gold', 1000), createReward('spirit', 150)], {
+      createLevel('ch5_level5', '天魔', '与天魔的最终决战', 'boss', { x: 720, y: 250 }, 15, [createReward('exp', 500), createReward('gold', 1000), createReward('spirit', 150), createReward('material', 10, 'immortal_herb', '九转灵芝'), createReward('material', 10, 'demon_heart', '天魔之心'), createReward('material', 5, 'lava_core', '熔岩核心')], {
         stageId: 5,
         victoryDialogueNodeId: 'ch5_boss_victory'
       })
@@ -436,7 +448,10 @@ export const CHAPTERS: Chapter[] = [
       createReward('attack', 50),
       createReward('defense', 50),
       createReward('maxHealth', 500),
-      createReward('maxMana', 300)
+      createReward('maxMana', 300),
+      createReward('material', 20, 'immortal_herb', '九转灵芝'),
+      createReward('material', 20, 'demon_heart', '天魔之心'),
+      createReward('material', 10, 'lava_core', '熔岩核心')
     ]
   }
 ]

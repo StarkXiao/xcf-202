@@ -798,6 +798,25 @@ export interface DungeonResult {
 
 export type MeridianRealm = 'qi_refining' | 'foundation' | 'golden_core' | 'nascent_soul' | 'soul_formation' | 'tribulation' | 'immortal'
 
+export interface BreakthroughMaterial {
+  materialId: string
+  name: string
+  icon: string
+  amount: number
+  color: number
+}
+
+export interface BreakthroughStory {
+  title: string
+  dialogues: {
+    speaker: string
+    text: string
+    color: number
+    avatar?: string
+  }[]
+  atmosphere: 'solemn' | 'heavenly' | 'dangerous' | 'mysterious' | 'triumphant'
+}
+
 export interface MeridianRealmInfo {
   id: MeridianRealm
   name: string
@@ -806,13 +825,18 @@ export interface MeridianRealmInfo {
   color: number
   requiredLevel: number
   breakthroughSpiritCost: number
+  breakthroughGoldCost: number
   breakthroughSuccessRate: number
   maxNodes: number
+  breakthroughMaterials: BreakthroughMaterial[]
+  breakthroughStory: BreakthroughStory
   statBonuses: {
     maxHealth: number
     maxMana: number
     attack: number
     defense: number
+    critRate?: number
+    critDamage?: number
   }
 }
 
@@ -875,6 +899,17 @@ export interface BreakthroughResult {
   newRealm?: MeridianRealm
   message: string
   costSpent: number
+  goldSpent: number
+  materialsSpent: BreakthroughMaterial[]
+  statGains?: {
+    maxHealth: number
+    maxMana: number
+    attack: number
+    defense: number
+    critRate?: number
+    critDamage?: number
+  }
+  story?: BreakthroughStory
 }
 
 export type SceneType = 'menu' | 'opening' | 'battle' | 'treasure' | 'sect' | 'result' | 'alchemy' | 'spiritBeast' | 'encounter' | 'equipment' | 'dungeon' | 'meridian' | 'shop' | 'chapterMap' | 'story' | 'chapterReview'
@@ -889,7 +924,7 @@ export interface StoryDialogue {
 }
 
 export interface ChapterReward {
-  type: 'gold' | 'spirit' | 'exp' | 'attack' | 'defense' | 'maxHealth' | 'maxMana' | 'skill' | 'treasure'
+  type: 'gold' | 'spirit' | 'exp' | 'attack' | 'defense' | 'maxHealth' | 'maxMana' | 'skill' | 'treasure' | 'material'
   value: number
   itemId?: string
   itemName?: string

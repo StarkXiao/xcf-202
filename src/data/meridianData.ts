@@ -9,8 +9,19 @@ export const MERIDIAN_REALMS: Record<MeridianRealm, MeridianRealmInfo> = {
     color: 0x78909c,
     requiredLevel: 1,
     breakthroughSpiritCost: 0,
+    breakthroughGoldCost: 0,
     breakthroughSuccessRate: 100,
     maxNodes: 6,
+    breakthroughMaterials: [],
+    breakthroughStory: {
+      title: '初入仙途',
+      dialogues: [
+        { speaker: '师尊', text: '徒儿，你已引气入体，正式踏入炼气之境。', color: 0x81c784 },
+        { speaker: '师尊', text: '修仙之路漫漫，当心存敬畏，步步为营。', color: 0x81c784 },
+        { speaker: '旁白', text: '你感受到天地灵气缓缓汇入体内，经脉初开，踏上了修仙之路。', color: 0xb0bec5 }
+      ],
+      atmosphere: 'solemn'
+    },
     statBonuses: { maxHealth: 0, maxMana: 0, attack: 0, defense: 0 }
   },
   foundation: {
@@ -21,8 +32,23 @@ export const MERIDIAN_REALMS: Record<MeridianRealm, MeridianRealmInfo> = {
     color: 0x4fc3f7,
     requiredLevel: 3,
     breakthroughSpiritCost: 100,
+    breakthroughGoldCost: 500,
     breakthroughSuccessRate: 85,
     maxNodes: 8,
+    breakthroughMaterials: [
+      { materialId: 'spirit_ore', name: '灵矿', icon: '💎', amount: 5, color: 0x4dd0e1 },
+      { materialId: 'basic_herb', name: '灵草', icon: '🌿', amount: 10, color: 0x66bb6a }
+    ],
+    breakthroughStory: {
+      title: '筑基之道',
+      dialogues: [
+        { speaker: '师尊', text: '炼气圆满，是时候筑基了。此乃修仙第一道关隘！', color: 0x81c784 },
+        { speaker: '旁白', text: '你盘膝而坐，运转功法，将全身灵气凝聚于丹田...', color: 0xb0bec5 },
+        { speaker: '旁白', text: '轰！一股磅礴气息自你体内爆发，道基已成！', color: 0x4fc3f7 },
+        { speaker: '师尊', text: '好！好！好！筑基成功，你今后便是真正的修仙者了！', color: 0xffd54f }
+      ],
+      atmosphere: 'solemn'
+    },
     statBonuses: { maxHealth: 100, maxMana: 50, attack: 15, defense: 10 }
   },
   golden_core: {
@@ -33,9 +59,25 @@ export const MERIDIAN_REALMS: Record<MeridianRealm, MeridianRealmInfo> = {
     color: 0xffd54f,
     requiredLevel: 6,
     breakthroughSpiritCost: 300,
+    breakthroughGoldCost: 2000,
     breakthroughSuccessRate: 70,
     maxNodes: 10,
-    statBonuses: { maxHealth: 300, maxMana: 150, attack: 40, defense: 25 }
+    breakthroughMaterials: [
+      { materialId: 'spirit_crystal', name: '灵晶', icon: '✦', amount: 8, color: 0xba68c8 },
+      { materialId: 'moon_grass', name: '月华草', icon: '🌙', amount: 5, color: 0xce93d8 },
+      { materialId: 'demon_bone', name: '魔骨', icon: '🦴', amount: 3, color: 0xef5350 }
+    ],
+    breakthroughStory: {
+      title: '金丹大道',
+      dialogues: [
+        { speaker: '旁白', text: '筑基巅峰，你感到丹田之中灵气翻腾，似要凝聚成形...', color: 0xb0bec5 },
+        { speaker: '师尊', text: '金丹九转，脱胎换骨。此劫凶险，务必凝神静气！', color: 0x81c784 },
+        { speaker: '旁白', text: '丹田中，一枚浑圆金丹缓缓旋转，绽放万道金光！', color: 0xffd54f },
+        { speaker: '旁白', text: '你仰天长啸，金丹已成！自此寿元五百年，可御剑凌空！', color: 0xffd54f }
+      ],
+      atmosphere: 'heavenly'
+    },
+    statBonuses: { maxHealth: 300, maxMana: 150, attack: 40, defense: 25, critRate: 3 }
   },
   nascent_soul: {
     id: 'nascent_soul',
@@ -45,9 +87,25 @@ export const MERIDIAN_REALMS: Record<MeridianRealm, MeridianRealmInfo> = {
     color: 0xba68c8,
     requiredLevel: 10,
     breakthroughSpiritCost: 800,
+    breakthroughGoldCost: 8000,
     breakthroughSuccessRate: 55,
     maxNodes: 12,
-    statBonuses: { maxHealth: 600, maxMana: 350, attack: 80, defense: 50 }
+    breakthroughMaterials: [
+      { materialId: 'soul_lotus', name: '幽冥莲', icon: '🪷', amount: 5, color: 0x7e57c2 },
+      { materialId: 'ghost_iron', name: '冥铁', icon: '⛓', amount: 8, color: 0x546e7a },
+      { materialId: 'spirit_crystal', name: '灵晶', icon: '✦', amount: 15, color: 0xba68c8 }
+    ],
+    breakthroughStory: {
+      title: '元婴显化',
+      dialogues: [
+        { speaker: '旁白', text: '金丹之上，更有元婴。此乃修仙者第二大境界！', color: 0xb0bec5 },
+        { speaker: '师尊', text: '碎丹成婴，九死一生。你准备好了吗？', color: 0x81c784 },
+        { speaker: '旁白', text: '金丹轰然碎裂，一道迷你身影自丹田中浮现，与你容貌一般无二！', color: 0xba68c8 },
+        { speaker: '旁白', text: '元婴睁眼，紫气东来三万里！自此神识大成，一念千里！', color: 0xba68c8 }
+      ],
+      atmosphere: 'mysterious'
+    },
+    statBonuses: { maxHealth: 600, maxMana: 350, attack: 80, defense: 50, critRate: 5, critDamage: 10 }
   },
   soul_formation: {
     id: 'soul_formation',
@@ -57,9 +115,27 @@ export const MERIDIAN_REALMS: Record<MeridianRealm, MeridianRealmInfo> = {
     color: 0xff7043,
     requiredLevel: 15,
     breakthroughSpiritCost: 2000,
+    breakthroughGoldCost: 30000,
     breakthroughSuccessRate: 40,
     maxNodes: 14,
-    statBonuses: { maxHealth: 1200, maxMana: 700, attack: 150, defense: 90 }
+    breakthroughMaterials: [
+      { materialId: 'fire_heart_grass', name: '火心草', icon: '🔥', amount: 8, color: 0xff7043 },
+      { materialId: 'lava_core', name: '熔岩核心', icon: '💠', amount: 5, color: 0xbf360c },
+      { materialId: 'soul_lotus', name: '幽冥莲', icon: '🪷', amount: 10, color: 0x7e57c2 },
+      { materialId: 'immortal_herb', name: '九转灵芝', icon: '🌟', amount: 2, color: 0xffd54f }
+    ],
+    breakthroughStory: {
+      title: '化神合道',
+      dialogues: [
+        { speaker: '旁白', text: '元婴圆满，神魂需与天地相合，方能窥探化神之境！', color: 0xb0bec5 },
+        { speaker: '心魔', text: '停下吧...修仙何其苦，不如归于虚无...', color: 0xef5350 },
+        { speaker: '旁白', text: '你灵台清明，一声怒喝：「我命由我不由天！」', color: 0xff7043 },
+        { speaker: '旁白', text: '轰！神魂与肉身完美融合，天地法则在你眼前显现！', color: 0xff7043 },
+        { speaker: '旁白', text: '化神成！自此翻手为云覆手为雨，一方大能！', color: 0xffd54f }
+      ],
+      atmosphere: 'dangerous'
+    },
+    statBonuses: { maxHealth: 1200, maxMana: 700, attack: 150, defense: 90, critRate: 8, critDamage: 20 }
   },
   tribulation: {
     id: 'tribulation',
@@ -69,9 +145,28 @@ export const MERIDIAN_REALMS: Record<MeridianRealm, MeridianRealmInfo> = {
     color: 0xef5350,
     requiredLevel: 22,
     breakthroughSpiritCost: 5000,
+    breakthroughGoldCost: 100000,
     breakthroughSuccessRate: 25,
     maxNodes: 16,
-    statBonuses: { maxHealth: 2500, maxMana: 1500, attack: 300, defense: 180 }
+    breakthroughMaterials: [
+      { materialId: 'demon_heart', name: '天魔之心', icon: '💜', amount: 5, color: 0x4a148c },
+      { materialId: 'immortal_herb', name: '九转灵芝', icon: '🌟', amount: 5, color: 0xffd54f },
+      { materialId: 'lava_core', name: '熔岩核心', icon: '💠', amount: 10, color: 0xbf360c },
+      { materialId: 'demon_bone', name: '魔骨', icon: '🦴', amount: 15, color: 0xef5350 }
+    ],
+    breakthroughStory: {
+      title: '天劫降临',
+      dialogues: [
+        { speaker: '旁白', text: '化神巅峰，天地变色，乌云汇聚，天劫将至！', color: 0xb0bec5 },
+        { speaker: '天道', text: '蝼蚁也敢窥伺仙道？且看你能否受此三灾九难！', color: 0xef5350 },
+        { speaker: '旁白', text: '第一道雷劫落下，紫色神雷劈开苍穹！', color: 0xffeb3b },
+        { speaker: '旁白', text: '你巍然不动，硬抗雷劫，肉身被劈得焦黑又瞬间恢复！', color: 0xff7043 },
+        { speaker: '旁白', text: '九九八十一道雷劫过后，你浴火重生，渡劫成功！', color: 0xffd54f },
+        { speaker: '旁白', text: '自此半步仙人，只待最后飞升！', color: 0xe1bee7 }
+      ],
+      atmosphere: 'dangerous'
+    },
+    statBonuses: { maxHealth: 2500, maxMana: 1500, attack: 300, defense: 180, critRate: 12, critDamage: 35 }
   },
   immortal: {
     id: 'immortal',
@@ -81,9 +176,29 @@ export const MERIDIAN_REALMS: Record<MeridianRealm, MeridianRealmInfo> = {
     color: 0xe1bee7,
     requiredLevel: 30,
     breakthroughSpiritCost: 15000,
+    breakthroughGoldCost: 500000,
     breakthroughSuccessRate: 10,
     maxNodes: 20,
-    statBonuses: { maxHealth: 6000, maxMana: 4000, attack: 600, defense: 400 }
+    breakthroughMaterials: [
+      { materialId: 'immortal_herb', name: '九转灵芝', icon: '🌟', amount: 15, color: 0xffd54f },
+      { materialId: 'demon_heart', name: '天魔之心', icon: '💜', amount: 10, color: 0x4a148c },
+      { materialId: 'spirit_crystal', name: '灵晶', icon: '✦', amount: 50, color: 0xba68c8 },
+      { materialId: 'soul_lotus', name: '幽冥莲', icon: '🪷', amount: 20, color: 0x7e57c2 },
+      { materialId: 'fire_heart_grass', name: '火心草', icon: '🔥', amount: 25, color: 0xff7043 }
+    ],
+    breakthroughStory: {
+      title: '飞升成仙',
+      dialogues: [
+        { speaker: '旁白', text: '渡劫圆满，你感应到仙界召唤，飞升之门已然开启！', color: 0xb0bec5 },
+        { speaker: '师尊', text: '徒儿...为师等这一天，等了三千年！', color: 0x81c784 },
+        { speaker: '旁白', text: '你脚踏祥云，身绕紫气，一步步登天而上！', color: 0xe1bee7 },
+        { speaker: '仙官', text: '下界修士，根骨奇佳，功德圆满，准予飞升！', color: 0xffd54f },
+        { speaker: '旁白', text: '金光万道，仙乐齐鸣，你踏入仙界，从此超脱凡尘！', color: 0xffd54f },
+        { speaker: '旁白', text: '位列仙班，与天地同寿，与日月同辉！恭喜——你已成仙！', color: 0xffffff }
+      ],
+      atmosphere: 'triumphant'
+    },
+    statBonuses: { maxHealth: 6000, maxMana: 4000, attack: 600, defense: 400, critRate: 20, critDamage: 50 }
   }
 }
 
