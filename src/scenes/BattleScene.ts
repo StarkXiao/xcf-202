@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { Player, Enemy, Stage, Skill, BattleResult, SpiritBeast, SpiritBeastSkill, ChapterReward, ElementType } from '../types'
+import type { Player, Enemy, Stage, Skill, BattleResult, SpiritBeast, SpiritBeastSkill, ChapterReward, ElementType, EnemySpecialSkill, EnemyDrop, BattleStatistics } from '../types'
 import { STAGES } from '../data/gameData'
 import { SaveManager } from '../managers/SaveManager'
 import { SkillSystem } from '../managers/SkillSystem'
@@ -47,6 +47,9 @@ export class BattleScene extends Phaser.Scene {
   private equipmentManager = EquipmentManager.getInstance()
   private meridianManager = MeridianManager.getInstance()
   private elementStats = { advantageHits: 0, disadvantageHits: 0, totalElementBonusDamage: 0 }
+  private battleStats: BattleStatistics = { totalDamageDealt: 0, totalDamageTaken: 0, totalHealing: 0, critCount: 0, critTotal: 0, enemiesDefeated: 0, eliteDefeated: 0, bossDefeated: 0, phaseTransitions: [], turnsElapsed: 0, specialSkillUses: 0 }
+  private enemySkillCooldowns: Map<string, number> = new Map()
+  private phaseAnnouncement: Phaser.GameObjects.Container | null = null
 
   constructor() {
     super({ key: 'BattleScene' })
@@ -82,6 +85,8 @@ export class BattleScene extends Phaser.Scene {
     this.activeBeastBuffs = this.battleBeasts.map(() => ({ attack: 0, defense: 0, critRate: 0, critDamage: 0 }))
     this.activeEnemyDebuffs = this.enemies.map(() => ({ defenseDown: 0, attackDown: 0 }))
     this.elementStats = { advantageHits: 0, disadvantageHits: 0, totalElementBonusDamage: 0 }
+    this.battleStats = { totalDamageDealt: 0, totalDamageTaken: 0, totalHealing: 0, critCount: 0, critTotal: 0, enemiesDefeated: 0, eliteDefeated: 0, bossDefeated: 0, phaseTransitions: [], turnsElapsed: 0, specialSkillUses: 0 }
+    this.enemySkillCooldowns = new Map()
 
     this.battleBeasts.forEach(beast => {
       if (beast) {
@@ -287,6 +292,46 @@ export class BattleScene extends Phaser.Scene {
 
     container.add([body, eye1, eye2])
 
+    if (enemy.type === 'boss') {
+      const bossCrown = this.add.graphics()
+      bossCrown.fillStyle(0xffd54f, 1)
+      bossCrown.beginPath()
+      bossCrown.moveTo(-15, -enemy.size / 2 - 8)
+      bossCrown.lineTo(-10, -enemy.size / 2 - 20)
+      bossCrown.lineTo(-5, -enemy.size / 2 - 12)
+      bossCrown.lineTo(0, -enemy.size / 2 - 24)
+      bossCrown.lineTo(5, -enemy.size / 2 - 12)
+      bossCrown.lineTo(10, -enemy.size / 2 - 20)
+      bossCrown.lineTo(15, -enemy.size / 2 - 8)
+      bossCrown.closePath()
+      bossCrown.fillPath()
+      container.add(bossCrown)
+
+      const bossGlow = this.add.graphics()
+      bossGlow.lineStyle(4, 0xffd54f, 0.6)
+      bossGlow.strokeCircle(0, 0, enemy.size / 2 + 8)
+      container.add(bossGlow)
+      this.tweens.add({
+        targets: bossGlow,
+        alpha: { from: 0.6, to: 0.2 },
+        duration: 1200,
+        yoyo: true,
+        repeat: -1
+      })
+    } else if (enemy.type === 'elite') {
+      const eliteMark = this.add.graphics()
+      eliteMark.lineStyle(3, 0xff9800, 0.8)
+      eliteMark.strokeCircle(0, 0, enemy.size / 2 + 6)
+      container.add(eliteMark)
+      this.tweens.add({
+        targets: eliteMark,
+        alpha: { from: 0.8, to: 0.3 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1
+      })
+    }
+
     if (enemy.element && enemy.element !== 'none') {
       const elementRing = this.add.graphics()
       const elementColor = ELEMENT_INFO[enemy.element].color
@@ -306,13 +351,20 @@ export class BattleScene extends Phaser.Scene {
 
     this.enemySprites.push(container)
 
-    const nameText = enemy.element && enemy.element !== 'none'
+    let nameText = ''
+    if (enemy.type === 'boss') {
+      nameText = '👑 '
+    } else if (enemy.type === 'elite') {
+      nameText = '⭐ '
+    }
+    nameText += enemy.element && enemy.element !== 'none'
       ? `${getElementLabel(enemy.element)} ${enemy.name}`
       : enemy.name
     const name = this.add.text(x, y + enemy.size / 2 + 20, nameText, {
       fontFamily: '"Microsoft YaHei", serif',
-      fontSize: '18px',
-      color: '#' + enemy.color.toString(16).padStart(6, '0')
+      fontSize: enemy.type === 'boss' ? '20px' : '18px',
+      color: '#' + enemy.color.toString(16).padStart(6, '0'),
+      fontStyle: enemy.type === 'boss' ? 'bold' : 'normal'
     }).setOrigin(0.5)
     this.enemyNames.push(name)
 
@@ -827,6 +879,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     this.isPlayerTurn = false
+    this.battleStats.turnsElapsed++
     const enemy = this.enemies[this.currentEnemyIndex]
     const skillResult = SkillSystem.useSkill(this.player, skill, enemy.element)
     const baseDamage = skillResult.damage || 0
@@ -848,6 +901,8 @@ export class BattleScene extends Phaser.Scene {
       damage = Math.floor(baseDamage * (1 + this.player.critDamage))
       damageColor = 0xff5722
       critText = '暴击！'
+      this.battleStats.critCount++
+      this.battleStats.critTotal += damage
     }
 
     const elementConstraintText = getElementConstraintText(skill.element || 'none', enemy.element || 'none')
@@ -872,6 +927,7 @@ export class BattleScene extends Phaser.Scene {
 
       const actualDamage = Math.max(1, damage - Math.floor(enemy.defense * 0.3))
       enemy.health -= actualDamage
+      this.battleStats.totalDamageDealt += actualDamage
 
       if (skillResult.isAdvantage) {
         this.showElementAdvantageText(this.enemySprites[this.currentEnemyIndex].x, this.enemySprites[this.currentEnemyIndex].y - 55)
@@ -895,6 +951,7 @@ export class BattleScene extends Phaser.Scene {
         if (enemy.health <= 0) {
           this.enemyDefeated()
         } else {
+          this.checkBossPhaseTransition(enemy)
           this.beastTurn()
         }
       })
@@ -933,7 +990,17 @@ export class BattleScene extends Phaser.Scene {
   private enemyDefeated(): void {
     const sprite = this.enemySprites[this.currentEnemyIndex]
     const defeatedEnemy = this.enemies[this.currentEnemyIndex]
-    this.showMessage(defeatedEnemy.name + ' 已被击败！')
+    this.battleStats.enemiesDefeated++
+
+    let defeatMsg = defeatedEnemy.name + ' 已被击败！'
+    if (defeatedEnemy.type === 'boss') {
+      this.battleStats.bossDefeated++
+      defeatMsg = '👑 ' + defeatedEnemy.name + ' 已被斩杀！'
+    } else if (defeatedEnemy.type === 'elite') {
+      this.battleStats.eliteDefeated++
+      defeatMsg = '⭐ ' + defeatedEnemy.name + ' 已被击败！'
+    }
+    this.showMessage(defeatMsg)
 
     const save = this.saveManager.loadGame()!
     const { unlockedAchievements } = this.achievementManager.updateProgress(save, {
@@ -945,6 +1012,12 @@ export class BattleScene extends Phaser.Scene {
 
     if (unlockedAchievements.length > 0) {
       this.showAchievementNotification(unlockedAchievements)
+    }
+
+    if (defeatedEnemy.type === 'boss') {
+      this.cameras.main.flash(400, 255, 215, 0)
+    } else if (defeatedEnemy.type === 'elite') {
+      this.cameras.main.flash(300, 255, 152, 0)
     }
 
     this.tweens.add({
@@ -965,9 +1038,17 @@ export class BattleScene extends Phaser.Scene {
       if (this.currentEnemyIndex >= this.enemies.length) {
         this.battleVictory()
       } else {
+        const nextEnemy = this.enemies[this.currentEnemyIndex]
+        if (nextEnemy.type === 'boss') {
+          this.showMessage('👑 首领出现！小心应战！')
+          this.cameras.main.shake(300, 0.01)
+        } else if (nextEnemy.type === 'elite') {
+          this.showMessage('⭐ 精英怪出现！')
+        } else {
+          this.showMessage('你的回合！选择一个技能')
+        }
         this.updateEnemyTarget()
         this.isPlayerTurn = true
-        this.showMessage('你的回合！选择一个技能')
         this.refreshSkillButtons()
       }
     })
@@ -1000,9 +1081,17 @@ export class BattleScene extends Phaser.Scene {
     this.isPlayerTurn = false
     this.showMessage('敌人的回合...')
 
+    this.tickEnemySkillCooldowns()
+
     this.time.delayedCall(800, () => {
       const enemy = this.enemies[this.currentEnemyIndex]
       const sprite = this.enemySprites[this.currentEnemyIndex]
+
+      const specialSkill = this.tryUseEnemySpecialSkill(enemy)
+      if (specialSkill) {
+        this.executeEnemySpecialSkill(enemy, specialSkill, sprite)
+        return
+      }
 
       this.tweens.add({
         targets: sprite,
@@ -1013,11 +1102,18 @@ export class BattleScene extends Phaser.Scene {
       })
 
       this.time.delayedCall(200, () => {
-        const baseDamage = enemy.attack
+        const attackReduction = this.activeEnemyDebuffs[this.currentEnemyIndex]?.attackDown || 0
+        let baseDamage = enemy.attack - attackReduction
+        if (enemy.type === 'boss' && enemy.phases && enemy.currentPhase !== undefined) {
+          const phase = enemy.phases[enemy.currentPhase]
+          if (phase) baseDamage = Math.floor(baseDamage * phase.attackMultiplier)
+        }
+        baseDamage = Math.max(1, baseDamage)
         const { multiplier: enemyMultiplier, isAdvantage: enemyAdv, isDisadvantage: enemyDisadv } = getElementMultiplier(enemy.element, undefined)
         const adjustedDamage = Math.floor(baseDamage * enemyMultiplier)
         const actualDamage = Math.max(1, adjustedDamage - Math.floor(this.player.defense * 0.5))
         this.player.health -= actualDamage
+        this.battleStats.totalDamageTaken += actualDamage
 
         let msg = enemy.name + ' 攻击你，造成 ' + actualDamage + ' 点伤害'
         if (enemyAdv) {
@@ -1035,7 +1131,7 @@ export class BattleScene extends Phaser.Scene {
           repeat: 2
         })
 
-        this.cameras.main.shake(200, 0.005)
+        this.cameras.main.shake(200, enemy.type === 'boss' ? 0.01 : 0.005)
         const dmgColor = enemyAdv ? 0xff5722 : enemyDisadv ? 0x78909c : 0xef5350
         this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, actualDamage, dmgColor)
         this.showMessage(msg)
@@ -1055,6 +1151,252 @@ export class BattleScene extends Phaser.Scene {
         })
       })
     })
+  }
+
+  private tryUseEnemySpecialSkill(enemy: Enemy): EnemySpecialSkill | null {
+    if (!enemy.specialSkills || enemy.specialSkills.length === 0) return null
+
+    const availableSkills = enemy.specialSkills.filter(skill => {
+      const cd = this.enemySkillCooldowns.get(skill.id) || 0
+      return cd === 0 && Math.random() < skill.chance
+    })
+
+    if (availableSkills.length === 0) return null
+
+    const skill = availableSkills[Math.floor(Math.random() * availableSkills.length)]
+    this.enemySkillCooldowns.set(skill.id, skill.cooldown)
+    return skill
+  }
+
+  private executeEnemySpecialSkill(enemy: Enemy, skill: EnemySpecialSkill, sprite: Phaser.GameObjects.Container): void {
+    this.battleStats.specialSkillUses++
+    this.showMessage(`${skill.icon} ${enemy.name} 使用了 ${skill.name}！`)
+
+    if (sprite) {
+      this.tweens.add({
+        targets: sprite,
+        scale: 1.2,
+        duration: 200,
+        yoyo: true,
+        ease: 'Power2'
+      })
+    }
+
+    this.createEnemySkillEffect(skill.color, sprite.x, sprite.y)
+
+    this.time.delayedCall(300, () => {
+      if (skill.damage) {
+        const attackReduction = this.activeEnemyDebuffs[this.currentEnemyIndex]?.attackDown || 0
+        let baseAtk = enemy.attack - attackReduction
+        if (enemy.type === 'boss' && enemy.phases && enemy.currentPhase !== undefined) {
+          const phase = enemy.phases[enemy.currentPhase]
+          if (phase) baseAtk = Math.floor(baseAtk * phase.attackMultiplier)
+        }
+        const totalDamage = Math.max(1, skill.damage + Math.floor(baseAtk * 0.3) - Math.floor(this.player.defense * 0.3))
+        this.player.health -= totalDamage
+        this.battleStats.totalDamageTaken += totalDamage
+
+        this.tweens.add({
+          targets: this.playerSprite,
+          x: this.playerSprite.x + '+=20',
+          alpha: 0.5,
+          duration: 100,
+          yoyo: true,
+          repeat: 2
+        })
+
+        this.cameras.main.shake(300, 0.008)
+        this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, totalDamage, skill.color)
+      }
+
+      if (skill.heal) {
+        enemy.health = Math.min(enemy.maxHealth, enemy.health + skill.heal)
+        this.showDamageText(sprite.x, sprite.y - 40, skill.heal, 0x81c784, true)
+      }
+
+      if (skill.debuffEffect) {
+        const playerDebuffType = skill.debuffEffect.type
+        if (playerDebuffType === 'defenseDown') {
+          this.activeEnemyDebuffs[this.currentEnemyIndex].defenseDown = Math.max(0, this.activeEnemyDebuffs[this.currentEnemyIndex].defenseDown)
+          this.player.defense = Math.max(1, this.player.defense - skill.debuffEffect.value)
+          this.showMessage(`你受到了防御降低效果！`)
+        } else if (playerDebuffType === 'attackDown') {
+          this.player.attack = Math.max(1, this.player.attack - skill.debuffEffect.value)
+          this.showMessage(`你受到了攻击降低效果！`)
+        } else if (playerDebuffType === 'burn') {
+          const burnDmg = skill.debuffEffect.value
+          this.player.health -= burnDmg
+          this.battleStats.totalDamageTaken += burnDmg
+          this.showDamageText(this.playerSprite.x, this.playerSprite.y - 50, burnDmg, 0xff5722)
+          this.showMessage(`灼烧造成 ${burnDmg} 点伤害！`)
+        }
+      }
+
+      if (skill.buffEffect) {
+        if (skill.buffEffect.type === 'attack') {
+          enemy.attack += skill.buffEffect.value
+          this.showMessage(`${enemy.name} 攻击力提升！`)
+        } else if (skill.buffEffect.type === 'defense') {
+          enemy.defense += skill.buffEffect.value
+          this.showMessage(`${enemy.name} 防御力提升！`)
+        }
+      }
+
+      this.updateUI()
+
+      this.time.delayedCall(700, () => {
+        if (this.player.health <= 0) {
+          this.battleDefeat()
+        } else {
+          SkillSystem.tickCooldowns(this.player)
+          SkillSystem.restoreMana(this.player, 8)
+          this.tickBeastCooldowns()
+          this.isPlayerTurn = true
+          this.showMessage('你的回合！选择一个技能')
+          this.refreshSkillButtons()
+        }
+      })
+    })
+  }
+
+  private createEnemySkillEffect(color: number, x: number, y: number): void {
+    for (let i = 0; i < 16; i++) {
+      const angle = (Math.PI * 2 * i) / 16
+      const particle = this.add.circle(x, y, 4, color, 0.9)
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * 90,
+        y: y + Math.sin(angle) * 90,
+        alpha: 0,
+        scale: 0,
+        duration: 600,
+        onComplete: () => particle.destroy()
+      })
+    }
+  }
+
+  private tickEnemySkillCooldowns(): void {
+    this.enemySkillCooldowns.forEach((cd, key) => {
+      if (cd > 0) {
+        this.enemySkillCooldowns.set(key, cd - 1)
+      }
+    })
+  }
+
+  private checkBossPhaseTransition(enemy: Enemy): void {
+    if (enemy.type !== 'boss' || !enemy.phases) return
+
+    const currentPhaseIndex = enemy.currentPhase || 0
+    const nextPhaseIndex = currentPhaseIndex + 1
+    if (nextPhaseIndex >= enemy.phases.length) return
+
+    const nextPhase = enemy.phases[nextPhaseIndex]
+    const healthRatio = enemy.health / enemy.maxHealth
+
+    if (healthRatio <= nextPhase.healthThreshold) {
+      enemy.currentPhase = nextPhaseIndex
+      enemy.specialSkills = nextPhase.specialSkills
+      enemy.attack = Math.floor(enemy.attack * nextPhase.attackMultiplier / (currentPhaseIndex > 0 ? enemy.phases[currentPhaseIndex].attackMultiplier : 1))
+      enemy.defense = Math.floor(enemy.defense * nextPhase.defenseMultiplier / (currentPhaseIndex > 0 ? enemy.phases[currentPhaseIndex].defenseMultiplier : 1))
+      enemy.color = nextPhase.color
+
+      this.battleStats.phaseTransitions.push({
+        phase: nextPhaseIndex,
+        phaseName: nextPhase.name,
+        message: nextPhase.message,
+        color: nextPhase.color
+      })
+
+      this.showPhaseTransitionAnnouncement(nextPhase)
+
+      const sprite = this.enemySprites[this.currentEnemyIndex]
+      if (sprite) {
+        this.cameras.main.shake(500, 0.012)
+        this.cameras.main.flash(300, nextPhase.color >> 16 & 0xff, nextPhase.color >> 8 & 0xff, nextPhase.color & 0xff)
+        this.tweens.add({
+          targets: sprite,
+          scale: 1.3,
+          duration: 200,
+          yoyo: true,
+          ease: 'Power2'
+        })
+      }
+
+      this.updateEnemyName(enemy)
+    }
+  }
+
+  private showPhaseTransitionAnnouncement(phase: { name: string; message: string; color: number }): void {
+    if (this.phaseAnnouncement) {
+      this.phaseAnnouncement.destroy()
+    }
+
+    const { width, height } = this.scale
+    this.phaseAnnouncement = this.add.container(width / 2, height / 2 - 40)
+
+    const bg = this.add.graphics()
+    bg.fillStyle(0x000000, 0.85)
+    bg.lineStyle(3, phase.color, 1)
+    this.roundedRect(bg, -220, -50, 440, 100, 16)
+    this.phaseAnnouncement.add(bg)
+
+    const phaseName = this.add.text(0, -20, '⚡ ' + phase.name + ' ⚡', {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '28px',
+      color: '#' + phase.color.toString(16).padStart(6, '0'),
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5)
+    this.phaseAnnouncement.add(phaseName)
+
+    const message = this.add.text(0, 15, phase.message, {
+      fontFamily: '"Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#ffffff',
+      align: 'center'
+    }).setOrigin(0.5)
+    this.phaseAnnouncement.add(message)
+
+    this.phaseAnnouncement.setAlpha(0)
+    this.phaseAnnouncement.setScale(0.5)
+    this.tweens.add({
+      targets: this.phaseAnnouncement,
+      alpha: 1,
+      scale: 1,
+      duration: 400,
+      ease: 'Back.easeOut'
+    })
+
+    this.tweens.add({
+      targets: this.phaseAnnouncement,
+      alpha: 0,
+      y: height / 2 - 80,
+      duration: 400,
+      delay: 2000,
+      ease: 'Cubic.In',
+      onComplete: () => {
+        if (this.phaseAnnouncement) {
+          this.phaseAnnouncement.destroy()
+          this.phaseAnnouncement = null
+        }
+      }
+    })
+  }
+
+  private updateEnemyName(enemy: Enemy): void {
+    const nameObj = this.enemyNames[this.currentEnemyIndex]
+    if (!nameObj) return
+    let nameText = '👑 '
+    nameText += enemy.element && enemy.element !== 'none'
+      ? `${getElementLabel(enemy.element)} ${enemy.name}`
+      : enemy.name
+    if (enemy.phases && enemy.currentPhase !== undefined && enemy.currentPhase > 0) {
+      const phaseName = enemy.phases[enemy.currentPhase]?.name || enemy.name
+      nameText = '👑 ' + (enemy.element && enemy.element !== 'none' ? `${getElementLabel(enemy.element)} ` : '') + phaseName
+    }
+    nameObj.setText(nameText)
+    nameObj.setColor('#' + enemy.color.toString(16).padStart(6, '0'))
   }
 
   private battleVictory(): void {
@@ -1090,7 +1432,9 @@ export class BattleScene extends Phaser.Scene {
       spiritGained: this.stage.rewards.spirit,
       playerHealth: this.player.health,
       herbDrops,
-      elementStats: { ...this.elementStats }
+      elementStats: { ...this.elementStats },
+      specialDrops: this.rollSpecialDrops(),
+      statistics: { ...this.battleStats }
     }
 
     save.player = this.player
@@ -1184,7 +1528,8 @@ export class BattleScene extends Phaser.Scene {
       expGained: 0,
       goldGained: 0,
       spiritGained: 0,
-      playerHealth: this.player.health
+      playerHealth: this.player.health,
+      statistics: { ...this.battleStats }
     }
 
     this.time.delayedCall(1500, () => {
@@ -1236,6 +1581,20 @@ export class BattleScene extends Phaser.Scene {
       '✨ ' + this.player.spirit + '\n' +
       'EXP: ' + this.player.exp + '/' + this.player.expToNext
     )
+  }
+
+  private rollSpecialDrops(): EnemyDrop[] {
+    const drops: EnemyDrop[] = []
+    this.enemies.forEach(enemy => {
+      if (enemy.health <= 0 && enemy.drops) {
+        enemy.drops.forEach(drop => {
+          if (Math.random() < drop.chance) {
+            drops.push({ ...drop })
+          }
+        })
+      }
+    })
+    return drops
   }
 
   private refreshSkillButtons(): void {

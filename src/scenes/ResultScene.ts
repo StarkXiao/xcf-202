@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import type { BattleResult, Player } from '../types'
+import type { BattleResult, Player, EnemyDrop } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { STAGES } from '../data/gameData'
 import { AlchemyManager } from '../managers/AlchemyManager'
@@ -47,19 +47,39 @@ export class ResultScene extends Phaser.Scene {
 
     const hasHerbDrops = this.result.victory && this.result.herbDrops && this.result.herbDrops.length > 0
     const hasElementStats = this.result.victory && this.result.elementStats && (this.result.elementStats.advantageHits > 0 || this.result.elementStats.disadvantageHits > 0)
-    const panelWidth = 500
-    let panelHeight = hasHerbDrops ? 560 : 480
+    const hasSpecialDrops = this.result.victory && this.result.specialDrops && this.result.specialDrops.length > 0
+    const hasStats = this.result.victory && this.result.statistics && this.result.statistics.turnsElapsed > 0
+    const hasPhaseTransitions = this.result.victory && this.result.statistics && this.result.statistics.phaseTransitions.length > 0
+
+    const panelWidth = 560
+    let panelHeight = 480
+    if (hasHerbDrops) panelHeight += 80
     if (hasElementStats) panelHeight += 60
+    if (hasSpecialDrops) panelHeight += 80
+    if (hasStats) panelHeight += 120
+    if (hasPhaseTransitions) panelHeight += 60
+    panelHeight = Math.min(panelHeight, height - 100)
     const panelX = width / 2
     const panelY = height / 2
 
+    const stats = this.result.statistics
+    const isBossBattle = stats && (stats.bossDefeated > 0 || stats.eliteDefeated > 0)
+    const borderColor = this.result.victory
+      ? (isBossBattle ? 0xff1744 : 0xffd54f)
+      : 0xef5350
+
     const panel = this.add.graphics()
     panel.fillStyle(0x000000, 0.9)
-    panel.lineStyle(3, this.result.victory ? 0xffd54f : 0xef5350, 0.95)
+    panel.lineStyle(3, borderColor, 0.95)
     this.roundedRect(panel, panelX - panelWidth / 2, panelY - panelHeight / 2, panelWidth, panelHeight, 20)
 
-    const titleColor = this.result.victory ? '#ffd54f' : '#ef5350'
-    const titleText = this.result.victory ? '🎉 战斗胜利！' : '💀 战斗失败'
+    const titleColor = this.result.victory ? (isBossBattle ? '#ff1744' : '#ffd54f') : '#ef5350'
+    let titleText = this.result.victory ? '🎉 战斗胜利！' : '💀 战斗失败'
+    if (this.result.victory && stats && stats.bossDefeated > 0) {
+      titleText = '👑 首领讨伐成功！'
+    } else if (this.result.victory && stats && stats.eliteDefeated > 0) {
+      titleText = '⭐ 精英讨伐胜利！'
+    }
 
     const title = this.add.text(panelX, panelY - panelHeight / 2 + 60, titleText, {
       fontFamily: '"Microsoft YaHei", serif',
@@ -115,7 +135,7 @@ export class ResultScene extends Phaser.Scene {
 
   private createVictoryContent(x: number, y: number): void {
     const hasHerbs = this.result.herbDrops && this.result.herbDrops.length > 0
-    const rewardsStartY = hasHerbs ? y - 90 : y - 60
+    const rewardsStartY = y - 90
 
     const rewards = [
       { label: '✨ 经验', value: '+' + this.result.expGained, color: 0x4fc3f7 },
@@ -153,10 +173,47 @@ export class ResultScene extends Phaser.Scene {
       })
     })
 
-    let herbY = rewardsStartY + 3 * 45 + 15
+    let contentY = rewardsStartY + 3 * 45 + 15
+    let delayBase = 1100
+
+    if (this.result.statistics && this.result.statistics.phaseTransitions.length > 0) {
+      const phaseY = contentY
+      const phaseTitle = this.add.text(x, phaseY, '⚡ 首领阶段切换：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#ff1744',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: phaseTitle,
+        alpha: 1,
+        duration: 400,
+        delay: delayBase
+      })
+
+      this.result.statistics.phaseTransitions.forEach((pt, idx) => {
+        const ptText = this.add.text(x, phaseY + 26 + idx * 24,
+          `→ 第${pt.phase}阶段：${pt.phaseName} — ${pt.message}`,
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '15px',
+            color: '#' + pt.color.toString(16).padStart(6, '0')
+          }).setOrigin(0.5).setAlpha(0)
+        this.tweens.add({
+          targets: ptText,
+          alpha: 1,
+          duration: 400,
+          delay: delayBase + 100 + idx * 120
+        })
+      })
+
+      contentY = phaseY + 26 + this.result.statistics.phaseTransitions.length * 24 + 12
+      delayBase += 200
+    }
+
     if (this.result.elementStats && (this.result.elementStats.advantageHits > 0 || this.result.elementStats.disadvantageHits > 0)) {
       const es = this.result.elementStats
-      const elementY = herbY
+      const elementY = contentY
       const elementTitle = this.add.text(x, elementY, '☯ 五行克制统计：', {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '20px',
@@ -167,7 +224,7 @@ export class ResultScene extends Phaser.Scene {
         targets: elementTitle,
         alpha: 1,
         duration: 400,
-        delay: 1100
+        delay: delayBase
       })
 
       const elementDetail = this.add.text(x, elementY + 28,
@@ -181,14 +238,15 @@ export class ResultScene extends Phaser.Scene {
         targets: elementDetail,
         alpha: 1,
         duration: 400,
-        delay: 1250
+        delay: delayBase + 150
       })
 
-      herbY = elementY + 60
+      contentY = elementY + 60
+      delayBase += 200
     }
 
     if (hasHerbs && this.result.herbDrops) {
-      const herbTitle = this.add.text(x, herbY, '🌿 获得药材：', {
+      const herbTitle = this.add.text(x, contentY, '🌿 获得药材：', {
         fontFamily: '"Microsoft YaHei", serif',
         fontSize: '20px',
         color: '#81c784',
@@ -198,13 +256,13 @@ export class ResultScene extends Phaser.Scene {
         targets: herbTitle,
         alpha: 1,
         duration: 400,
-        delay: 1100
+        delay: delayBase
       })
 
       this.result.herbDrops.forEach((drop, idx) => {
         const herb = getHerbById(drop.herbId)
         if (!herb) return
-        const dy = herbY + 30 + idx * 28
+        const dy = contentY + 30 + idx * 28
         const herbText = this.add.text(x, dy,
           `${herb.icon} ${herb.name}  x${drop.amount}`,
           {
@@ -216,16 +274,120 @@ export class ResultScene extends Phaser.Scene {
           targets: herbText,
           alpha: 1,
           duration: 400,
-          delay: 1200 + idx * 150
+          delay: delayBase + 100 + idx * 150
         })
       })
-      herbY = herbY + 30 + this.result.herbDrops.length * 28 + 15
-    } else {
-      herbY = rewardsStartY + 3 * 45 + 15
+      contentY = contentY + 30 + this.result.herbDrops.length * 28 + 15
+      delayBase += 200
+    }
+
+    if (this.result.specialDrops && this.result.specialDrops.length > 0) {
+      const dropTitle = this.add.text(x, contentY, '🎁 特殊掉落：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '20px',
+        color: '#ce93d8',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: dropTitle,
+        alpha: 1,
+        duration: 400,
+        delay: delayBase
+      })
+
+      this.result.specialDrops.forEach((drop, idx) => {
+        const dy = contentY + 26 + idx * 24
+        const dropIcon = drop.icon || this.getDropIcon(drop.type)
+        const dropName = drop.name || this.getDropTypeName(drop.type)
+        const dropText = this.add.text(x, dy,
+          `${dropIcon} ${dropName}  x${drop.amount}`,
+          {
+            fontFamily: '"Microsoft YaHei", serif',
+            fontSize: '17px',
+            color: '#' + drop.color.toString(16).padStart(6, '0')
+          }).setOrigin(0.5).setAlpha(0)
+        this.tweens.add({
+          targets: dropText,
+          alpha: 1,
+          duration: 400,
+          delay: delayBase + 100 + idx * 120
+        })
+      })
+      contentY = contentY + 26 + this.result.specialDrops.length * 24 + 12
+      delayBase += 200
+    }
+
+    if (this.result.statistics && this.result.statistics.turnsElapsed > 0) {
+      const stats = this.result.statistics
+      const statsY = contentY
+      const statsTitle = this.add.text(x, statsY, '📊 战斗统计：', {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '18px',
+        color: '#4fc3f7',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: statsTitle,
+        alpha: 1,
+        duration: 400,
+        delay: delayBase
+      })
+
+      const statsItems = [
+        `总伤害: ${stats.totalDamageDealt}`,
+        `总承伤: ${stats.totalDamageTaken}`,
+        `暴击: ${stats.critCount}次`,
+        `回合: ${stats.turnsElapsed}`,
+        `敌人: ${stats.enemiesDefeated}体`,
+        `特殊技能: ${stats.specialSkillUses}次`
+      ]
+      if (stats.eliteDefeated > 0) statsItems.push(`⭐精英: ${stats.eliteDefeated}`)
+      if (stats.bossDefeated > 0) statsItems.push(`👑首领: ${stats.bossDefeated}`)
+
+      const statsLine1 = this.add.text(x, statsY + 24, statsItems.slice(0, 3).join('  |  '), {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '15px',
+        color: '#b0bec5'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: statsLine1,
+        alpha: 1,
+        duration: 400,
+        delay: delayBase + 100
+      })
+
+      const statsLine2 = this.add.text(x, statsY + 44, statsItems.slice(3, 6).join('  |  '), {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '15px',
+        color: '#b0bec5'
+      }).setOrigin(0.5).setAlpha(0)
+      this.tweens.add({
+        targets: statsLine2,
+        alpha: 1,
+        duration: 400,
+        delay: delayBase + 200
+      })
+
+      if (statsItems.length > 6) {
+        const statsLine3 = this.add.text(x, statsY + 64, statsItems.slice(6).join('  |  '), {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '15px',
+          color: stats.bossDefeated > 0 ? '#ff1744' : '#ff9800'
+        }).setOrigin(0.5).setAlpha(0)
+        this.tweens.add({
+          targets: statsLine3,
+          alpha: 1,
+          duration: 400,
+          delay: delayBase + 300
+        })
+      }
+
+      contentY = statsY + (statsItems.length > 6 ? 88 : 68)
+      delayBase += 200
     }
 
     if (this.leveledUp) {
-      const levelUpY = herbY
+      const levelUpY = contentY
       const levelUpText = this.add.text(x, levelUpY,
         `🎊 等级提升！Lv.${this.player.level - this.levels} → Lv.${this.player.level}`,
         {
@@ -242,7 +404,7 @@ export class ResultScene extends Phaser.Scene {
         alpha: 1,
         scale: { from: 0.8, to: 1 },
         duration: 600,
-        delay: 1400,
+        delay: delayBase,
         ease: 'Back.easeOut'
       })
 
@@ -250,14 +412,14 @@ export class ResultScene extends Phaser.Scene {
         targets: levelUpText,
         scale: 1.05,
         duration: 800,
-        delay: 2000,
+        delay: delayBase + 600,
         yoyo: true,
         repeat: -1
       })
-      herbY = levelUpY + 40
+      contentY = levelUpY + 40
     }
 
-    const currentInfo = this.add.text(x, herbY + 15,
+    const currentInfo = this.add.text(x, contentY + 10,
       `当前等级: Lv.${this.player.level}  |  经验: ${this.player.exp}/${this.player.expToNext}`,
       {
         fontFamily: '"Microsoft YaHei", serif',
@@ -269,7 +431,7 @@ export class ResultScene extends Phaser.Scene {
       targets: currentInfo,
       alpha: 1,
       duration: 500,
-      delay: 1700
+      delay: delayBase + 300
     })
   }
 
@@ -281,18 +443,36 @@ export class ResultScene extends Phaser.Scene {
     ]
 
     const tip = messages[Math.floor(Math.random() * messages.length)]
-    const tipText = this.add.text(x, y - 30, tip, {
+    const tipText = this.add.text(x, y - 50, tip, {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '22px',
       color: '#b0bec5',
       align: 'center'
     }).setOrigin(0.5)
 
-    const recoverText = this.add.text(x, y + 30, '（生命值已恢复50%）', {
+    const recoverText = this.add.text(x, y + 10, '（生命值已恢复50%）', {
       fontFamily: '"Microsoft YaHei", serif',
       fontSize: '18px',
       color: '#81c784'
     }).setOrigin(0.5)
+
+    if (this.result.statistics && this.result.statistics.turnsElapsed > 0) {
+      const stats = this.result.statistics
+      const statsText = this.add.text(x, y + 55,
+        `战斗统计: 回合${stats.turnsElapsed} | 伤害${stats.totalDamageDealt} | 承伤${stats.totalDamageTaken}`,
+        {
+          fontFamily: '"Microsoft YaHei", serif',
+          fontSize: '16px',
+          color: '#78909c'
+        }).setOrigin(0.5)
+      statsText.setAlpha(0)
+      this.tweens.add({
+        targets: statsText,
+        alpha: 1,
+        duration: 500,
+        delay: 800
+      })
+    }
 
     const advice = this.add.text(x, y + 100,
       '建议：前往【宗门经营】或【法宝养成】提升实力',
@@ -311,6 +491,28 @@ export class ResultScene extends Phaser.Scene {
         delay: 400 + i * 250
       })
     })
+  }
+
+  private getDropIcon(type: string): string {
+    const icons: Record<string, string> = {
+      gold: '💰',
+      spirit: '✨',
+      exp: '⭐',
+      herb: '🌿',
+      material: '💎'
+    }
+    return icons[type] || '🎁'
+  }
+
+  private getDropTypeName(type: string): string {
+    const names: Record<string, string> = {
+      gold: '金币',
+      spirit: '灵气',
+      exp: '经验',
+      herb: '药材',
+      material: '材料'
+    }
+    return names[type] || type
   }
 
   private createButtons(x: number, y: number): void {

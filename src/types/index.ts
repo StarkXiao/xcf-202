@@ -83,6 +83,51 @@ export interface Player {
   treasures: Treasure[]
 }
 
+export type EnemyType = 'normal' | 'elite' | 'boss'
+
+export interface EnemySpecialSkill {
+  id: string
+  name: string
+  description: string
+  damage?: number
+  heal?: number
+  buffEffect?: {
+    type: 'attack' | 'defense'
+    value: number
+    duration: number
+  }
+  debuffEffect?: {
+    type: 'defenseDown' | 'attackDown' | 'burn' | 'slow'
+    value: number
+    duration: number
+  }
+  chance: number
+  icon: string
+  color: number
+  cooldown: number
+}
+
+export interface BossPhase {
+  phase: number
+  name: string
+  healthThreshold: number
+  attackMultiplier: number
+  defenseMultiplier: number
+  specialSkills: EnemySpecialSkill[]
+  color: number
+  message: string
+}
+
+export interface EnemyDrop {
+  type: 'gold' | 'spirit' | 'exp' | 'herb' | 'material'
+  id?: string
+  name?: string
+  icon?: string
+  amount: number
+  chance: number
+  color: number
+}
+
 export interface Enemy {
   id: string
   name: string
@@ -95,6 +140,11 @@ export interface Enemy {
   color: number
   size: number
   element?: ElementType
+  type?: EnemyType
+  specialSkills?: EnemySpecialSkill[]
+  phases?: BossPhase[]
+  currentPhase?: number
+  drops?: EnemyDrop[]
 }
 
 export interface Stage {
@@ -111,6 +161,27 @@ export interface Stage {
   }
 }
 
+export interface PhaseTransition {
+  phase: number
+  phaseName: string
+  message: string
+  color: number
+}
+
+export interface BattleStatistics {
+  totalDamageDealt: number
+  totalDamageTaken: number
+  totalHealing: number
+  critCount: number
+  critTotal: number
+  enemiesDefeated: number
+  eliteDefeated: number
+  bossDefeated: number
+  phaseTransitions: PhaseTransition[]
+  turnsElapsed: number
+  specialSkillUses: number
+}
+
 export interface BattleResult {
   victory: boolean
   stageId: number
@@ -124,6 +195,8 @@ export interface BattleResult {
     disadvantageHits: number
     totalElementBonusDamage: number
   }
+  specialDrops?: EnemyDrop[]
+  statistics?: BattleStatistics
 }
 
 export type ResourceType = 'gold' | 'spirit' | 'stone' | 'wood' | 'herb'
