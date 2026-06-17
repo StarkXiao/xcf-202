@@ -668,6 +668,7 @@ export interface GameSave {
   shop: ShopData
   achievement: AchievementData
   chapter: ChapterProgress
+  dailyTrial: DailyTrialProgress
   currentStage: number
   highestStage: number
   lastPlayTime: number
@@ -1144,5 +1145,85 @@ export interface OfflineIncomeData {
   totalGoldEarned: number
   totalSpiritEarned: number
   totalExpEarned: number
+}
+
+export interface DailyTrialReward {
+  type: 'gold' | 'spirit' | 'exp' | 'material' | 'herb' | 'pill' | 'treasure'
+  value: number
+  itemId?: string
+  itemName?: string
+  itemIcon?: string
+  itemColor?: number
+}
+
+export interface DailyTrialLevel {
+  id: number
+  name: string
+  description: string
+  difficulty: 'easy' | 'normal' | 'hard' | 'extreme'
+  background: number
+  enemies: Enemy[]
+  rewards: DailyTrialReward[]
+  unlockLevel: number
+  minPlayerLevel: number
+  statMultiplier: {
+    health: number
+    attack: number
+    defense: number
+  }
+}
+
+export interface DailyTrialProgress {
+  dailyAttempts: number
+  maxDailyAttempts: number
+  highestLevel: number
+  currentLevel: number
+  lastDailyReset: number
+  totalClears: number
+  bestTime: number | null
+  lastCompletionTime: number | null
+  claimedLevelRewards: number[]
+  isTrialActive: boolean
+  trialStartHealth: number
+  playerSnapshot: {
+    health: number
+    maxHealth: number
+    attack: number
+    defense: number
+    mana: number
+    maxMana: number
+  } | null
+  consecutiveDays: number
+  lastStreakDate: string | null
+  purchasedExtraAttempts: number
+  currentDifficultyScale: number
+  dailyGoldEarned: number
+  dailySpiritEarned: number
+  dailyExpEarned: number
+  dailyClearedLevels: number[]
+  dailyMilestoneClaimed: number[]
+  bestConsecutiveDays: number
+}
+
+export interface DailyTrialMilestone {
+  id: number
+  requiredClearedLevels: number
+  rewards: DailyTrialReward[]
+  label: string
+  icon: string
+}
+
+export interface DailyTrialResult {
+  success: boolean
+  levelId: number
+  clearedLevel: number
+  goldEarned: number
+  spiritEarned: number
+  expEarned: number
+  extraRewards: DailyTrialReward[]
+  isNewRecord: boolean
+  completionTime: number
+  streakBonus: number
+  difficultyScale: number
 }
 

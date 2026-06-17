@@ -3,6 +3,7 @@ import type { GameSave } from '../types'
 import { SaveManager } from '../managers/SaveManager'
 import { AchievementManager } from '../managers/AchievementManager'
 import { OfflineIncomeManager } from '../managers/OfflineIncomeManager'
+import { DailyTrialManager } from '../managers/DailyTrialManager'
 import { STAGES } from '../data/gameData'
 
 export class MenuScene extends Phaser.Scene {
@@ -10,6 +11,7 @@ export class MenuScene extends Phaser.Scene {
   private saveManager: SaveManager
   private achievementManager: AchievementManager
   private offlineIncomeManager: OfflineIncomeManager
+  private dailyTrialManager: DailyTrialManager
   private notificationBadge!: Phaser.GameObjects.Text
   private pendingOfflineIncome: any = null
 
@@ -18,6 +20,7 @@ export class MenuScene extends Phaser.Scene {
     this.saveManager = SaveManager.getInstance()
     this.achievementManager = AchievementManager.getInstance()
     this.offlineIncomeManager = OfflineIncomeManager.getInstance()
+    this.dailyTrialManager = DailyTrialManager.getInstance()
   }
 
   init(): void {
@@ -27,6 +30,7 @@ export class MenuScene extends Phaser.Scene {
       this.saveManager.saveGame(this.save)
     }
     this.saveManager.recalcPlayerStatsFromSave(this.save)
+    this.dailyTrialManager.checkDailyReset(this.save.dailyTrial)
 
     if (existingSave) {
       this.pendingOfflineIncome = this.saveManager.settleOfflineIncome(this.save)
@@ -203,15 +207,16 @@ export class MenuScene extends Phaser.Scene {
       { label: '⚡ 技能修炼', y: height * 0.50 + 12, color: 0xff7043, action: () => this.goToSkill() },
       { label: '� 成就图鉴', y: height * 0.54 + 18, color: 0xffd54f, action: () => this.goToAchievement() },
       { label: '� 坊市交易', y: height * 0.58 + 24, color: 0xffd54f, action: () => this.goToShop() },
-      { label: '🏰 秘境探索', y: height * 0.62 + 30, color: 0x9575cd, action: () => this.goToDungeon() },
-      { label: '✨ 仙缘奇遇', y: height * 0.68 + 30, color: 0xba68c8, action: () => this.goToEncounter() },
-      { label: '🧘 经脉修炼', y: height * 0.74 + 30, color: 0xe1bee7, action: () => this.goToMeridian() },
-      { label: '🐉 灵兽养成', y: height * 0.80 + 30, color: 0xff7043, action: () => this.goToSpiritBeast() },
-      { label: '🧪 洞府炼丹', y: height * 0.86 + 30, color: 0xba68c8, action: () => this.goToAlchemy() },
-      { label: '🏛️ 宗门经营', y: height * 0.90 + 30, color: 0xffd54f, action: () => this.goToSect() },
-      { label: '💎 法宝养成', y: height * 0.94 + 30, color: 0x81c784, action: () => this.goToTreasure() },
-      { label: '⚒️ 装备锻造', y: height * 0.98 + 30, color: 0xff7043, action: () => this.goToEquipment() },
-      { label: '📖 重新开始', y: height * 1.02, color: 0xef5350, action: () => this.confirmReset() }
+      { label: '� 每日试炼', y: height * 0.60 + 30, color: 0xff5252, action: () => this.goToDailyTrial() },
+      { label: '� 秘境探索', y: height * 0.66 + 30, color: 0x9575cd, action: () => this.goToDungeon() },
+      { label: '✨ 仙缘奇遇', y: height * 0.72 + 30, color: 0xba68c8, action: () => this.goToEncounter() },
+      { label: '🧘 经脉修炼', y: height * 0.78 + 30, color: 0xe1bee7, action: () => this.goToMeridian() },
+      { label: '🐉 灵兽养成', y: height * 0.84 + 30, color: 0xff7043, action: () => this.goToSpiritBeast() },
+      { label: '🧪 洞府炼丹', y: height * 0.90 + 30, color: 0xba68c8, action: () => this.goToAlchemy() },
+      { label: '🏛️ 宗门经营', y: height * 0.94 + 30, color: 0xffd54f, action: () => this.goToSect() },
+      { label: '💎 法宝养成', y: height * 0.98 + 30, color: 0x81c784, action: () => this.goToTreasure() },
+      { label: '⚒️ 装备锻造', y: height * 1.02 + 30, color: 0xff7043, action: () => this.goToEquipment() },
+      { label: '📖 重新开始', y: height * 1.06, color: 0xef5350, action: () => this.confirmReset() }
     ]
 
     buttonConfigs.forEach((config, index) => {
@@ -228,6 +233,9 @@ export class MenuScene extends Phaser.Scene {
 
       if (config.label.includes('成就图鉴')) {
         this.addAchievementBadge(btn)
+      }
+      if (config.label.includes('每日试炼')) {
+        this.addDailyTrialBadge(btn)
       }
     })
   }
@@ -255,6 +263,45 @@ export class MenuScene extends Phaser.Scene {
       this.tweens.add({
         targets: this.notificationBadge,
         scale: { from: 1, to: 1.2 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      })
+    }
+  }
+
+  private addDailyTrialBadge(button: Phaser.GameObjects.Container): void {
+    const remaining = this.dailyTrialManager.getRemainingAttempts(this.save.dailyTrial)
+    const streakDays = this.save.dailyTrial.consecutiveDays || 0
+    const availableMilestones = this.dailyTrialManager.getAvailableMilestones(this.save.dailyTrial)
+
+    if (remaining > 0 || streakDays > 0 || availableMilestones.length > 0) {
+      let badgeText = ''
+      if (remaining > 0) badgeText += `${remaining}`
+      if (streakDays > 0) badgeText += `🔥${streakDays}`
+      if (availableMilestones.length > 0) badgeText += `🏆`
+
+      const badge = this.add.text(button.x + 120, button.y - 20, badgeText, {
+        fontFamily: '"Microsoft YaHei", serif',
+        fontSize: '16px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        backgroundColor: remaining > 0 ? '#ff5252' : availableMilestones.length > 0 ? '#ffd54f' : '#ff7043',
+        padding: { left: 6, right: 6, top: 2, bottom: 2 }
+      }).setOrigin(0.5).setDepth(100)
+
+      this.tweens.add({
+        targets: badge,
+        scale: { from: 0, to: 1 },
+        duration: 300,
+        delay: 1500,
+        ease: 'Back.easeOut'
+      })
+
+      this.tweens.add({
+        targets: badge,
+        scale: { from: 1, to: 1.15 },
         duration: 1000,
         yoyo: true,
         repeat: -1,
@@ -332,6 +379,13 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400)
     this.time.delayedCall(400, () => {
       this.scene.start('BattleScene', { stageId: this.save.currentStage })
+    })
+  }
+
+  private goToDailyTrial(): void {
+    this.cameras.main.fadeOut(400)
+    this.time.delayedCall(400, () => {
+      this.scene.start('DailyTrialScene')
     })
   }
 

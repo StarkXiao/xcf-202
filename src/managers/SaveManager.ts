@@ -11,6 +11,7 @@ import { ShopManager } from './ShopManager'
 import { AchievementManager } from './AchievementManager'
 import { ChapterManager } from './ChapterManager'
 import { OfflineIncomeManager } from './OfflineIncomeManager'
+import { DailyTrialManager } from './DailyTrialManager'
 
 const SAVE_KEY = 'xianxia_sword_save_v1'
 
@@ -56,6 +57,7 @@ export class SaveManager {
     const achievementManager = AchievementManager.getInstance()
     const chapterManager = ChapterManager.getInstance()
     const offlineIncomeManager = OfflineIncomeManager.getInstance()
+    const dailyTrialManager = DailyTrialManager.getInstance()
     const save = {
       player: this.createDefaultPlayer(),
       sect: sectManager.createInitialSect(),
@@ -68,6 +70,7 @@ export class SaveManager {
       achievement: achievementManager.createInitialAchievementData(),
       dungeon: this.createInitialDungeonProgress(),
       chapter: chapterManager.createInitialChapterProgress(),
+      dailyTrial: dailyTrialManager.createInitialDailyTrialData(),
       currentStage: 1,
       highestStage: 1,
       lastPlayTime: Date.now(),
@@ -131,9 +134,11 @@ export class SaveManager {
   } {
     const sectManager = SectManager.getInstance()
     const offlineIncomeManager = OfflineIncomeManager.getInstance()
+    const dailyTrialManager = DailyTrialManager.getInstance()
 
     sectManager.checkDailyReset(save.sect)
     sectManager.updateQuestProgress(save.sect)
+    dailyTrialManager.checkDailyReset(save.dailyTrial)
 
     const playerResult = offlineIncomeManager.calculateOfflineIncome(save)
     const { resources: sectResources, seconds: sectSeconds } = sectManager.calculateOfflineProduction(save.sect)
@@ -336,6 +341,9 @@ export class SaveManager {
 
     const offlineIncomeManager = OfflineIncomeManager.getInstance()
     save.offlineIncome = offlineIncomeManager.validateOfflineIncomeData(save.offlineIncome)
+
+    const dailyTrialManager = DailyTrialManager.getInstance()
+    save.dailyTrial = dailyTrialManager.validateDailyTrialData(save.dailyTrial)
 
     return save
   }
